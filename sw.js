@@ -1,5 +1,11 @@
-const CACHE='cg-vario-v2';
-const ASSETS=['./','./index.html','./styles.css','./app.js','./protocol.js','./icon.svg','./manifest.webmanifest'];
+const CACHE='cg-vario-v4';
+const ASSETS=['./index.html','./styles.css?v=4','./app.js?v=4','./protocol.js?v=4','./vario.js?v=4','./icon.svg','./manifest.webmanifest'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())));
-self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
-self.addEventListener('fetch',event=>{if(event.request.method==='GET')event.respondWith(fetch(event.request).then(response=>{const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));return response}).catch(()=>caches.match(event.request)))})
+self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('cg-vario-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
+self.addEventListener('fetch',event=>{
+  const request=event.request;
+  if(request.method!=='GET'||new URL(request.url).origin!==self.location.origin)return;
+  // HTML is network-first; versioned modules stay together in one release cache.
+  if(request.mode==='navigate')event.respondWith(fetch(request,{cache:'no-cache'}).catch(()=>caches.match('./index.html')));
+  else event.respondWith(caches.open(CACHE).then(async cache=>(await cache.match(request))||fetch(request)));
+});

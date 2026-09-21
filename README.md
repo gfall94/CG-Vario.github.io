@@ -33,3 +33,11 @@ den Inhalt von `main /`; `.github/workflows/test.yml` prüft bei jedem Push den
 Protokolldecoder.
 
 Das vollständige Paketformat ist in `docs/PROTOKOLL.md` beschrieben.
+
+Der Trend „Steigen / Sinken“ fusioniert die barometrische Höhe mit der vertikalen
+linearen Beschleunigung aus der Bosch-Sensorfusion. Ein Kalman-Filter schätzt
+auch den Beschleunigungsoffset; bei fehlender IMU wird barometrisch gefiltert.
+Details, Parameter und Testgrenzen: [Vario-Filter](docs/VARIO.md).
+Für diese Web-Aktualisierung ist kein erneutes Flashen der aktuellen Firmware
+erforderlich. Die Seite in Bluefy neu laden, damit die versionierten Dateien
+übernommen werden.
