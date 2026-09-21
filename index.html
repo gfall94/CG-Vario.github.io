@@ -38,9 +38,16 @@
       <article class="metric"><span>Paketlücken</span><strong id="lost">0</strong><small>Pakete</small></article>
     </section>
 
+    <section class="vector-readout panel">
+      <div><p class="eyebrow">MAGNETFELD · GERÄTEACHSEN</p><h2>Aktuelle Werte</h2></div>
+      <p><span>X</span><strong id="magX">–</strong><small>µT</small></p>
+      <p><span>Y</span><strong id="magY">–</strong><small>µT</small></p>
+      <p><span>Z</span><strong id="magZ">–</strong><small>µT</small></p>
+    </section>
+
     <section class="toolbar panel">
       <label>QNH <span><input id="qnh" type="number" min="800" max="1100" step="0.1" value="1013.25"> hPa</span></label>
-      <label>Zeitraum <select id="window"><option value="10">10 s</option><option value="20">20 s</option><option value="60" selected>60 s</option></select></label>
+      <p class="window-label">Trendfenster <strong>letzte 60 s</strong></p>
       <button id="zero">Höhe nullen</button>
       <button id="pause">Ansicht pausieren</button>
       <button id="export">CSV exportieren</button>
@@ -51,7 +58,6 @@
       <article class="chart panel"><div class="chart-title"><div><h2>Lineare Beschleunigung</h2><p>Erdbezug · m/s²</p></div><div class="legend axes"><span>E</span><span>N</span><span>U</span></div></div><canvas id="linearChart"></canvas></article>
       <article class="chart panel"><div class="chart-title"><div><h2>Beschleunigung + g</h2><p>Erdbezug · m/s²</p></div><div class="legend axes"><span>E</span><span>N</span><span>U</span></div></div><canvas id="accChart"></canvas></article>
       <article class="chart panel"><div class="chart-title"><div><h2>Drehrate</h2><p>Geräteachsen · °/s</p></div><div class="legend axes"><span>X</span><span>Y</span><span>Z</span></div></div><canvas id="gyroChart"></canvas></article>
-      <article class="chart panel"><div class="chart-title"><div><h2>Magnetfeld</h2><p>Geräteachsen · µT</p></div><div class="legend axes"><span>X</span><span>Y</span><span>Z</span></div></div><canvas id="magChart"></canvas></article>
       <article class="chart panel"><div class="chart-title"><div><h2>Umgebung</h2><p>Temperatur °C · Feuchte %</p></div></div><canvas id="environmentChart"></canvas></article>
       <article class="chart panel"><div class="chart-title"><div><h2>Luftqualität</h2><p>IAQ · eCO₂ ppm · bVOC ppm</p></div></div><canvas id="airChart"></canvas></article>
     </section>

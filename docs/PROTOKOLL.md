@@ -44,8 +44,8 @@ Quaternion und höchstens 25 ms Abstand der Host-Empfangszeiten.
 
 | Index | Größe | Einheit / Bezug |
 |---|---|---|
-| 0–2 | Beschleunigung einschließlich Schwerkraft | m/s², Ost/Nord/Oben |
-| 3–5 | Lineare Beschleunigung | m/s², Ost/Nord/Oben, Schwerkraft entfernt |
+| 0–2 | Fusionierte Gesamtbeschleunigung (linear + Gravitation) | m/s², Ost/Nord/Oben |
+| 3–5 | Fusionierte lineare Beschleunigung | m/s², Ost/Nord/Oben, Schwerkraft entfernt |
 | 6–8 | Drehrate | °/s, Geräte-X/Y/Z |
 | 9–11 | Magnetfeld | µT, Geräte-X/Y/Z |
 | 12–15 | Rotation Vector x/y/z/w | Bosch-Quaternion ENU → Gerät |
@@ -64,7 +64,10 @@ Beschleunigungsfaktor: tatsächlich konfigurierte Range in g × 9,80665 / 32768.
 Gyroskop: Range in °/s / 32768. Magnetfeld: Range in µT / 32768
 (bei 2048 µT Full-Scale entspricht das 1/16 µT pro LSB).
 Druck: exakt 1/128 hPa pro LSB (überschreibt gerundeten Bibliotheksfaktor).
-Quaternion wird vor der inversen Rotation normiert. Nord ist magnetisch Nord;
+Der BHI260AP erzeugt Linear Acceleration, Gravity und Rotation Vector in der
+integrierten Bosch-Sensorfusion. Die Firmware rotiert Linear Acceleration und
+Gravity mit dem inversen, zuvor normalisierten Quaternion in den Erdbezug und
+addiert beide für die Gesamtbeschleunigung. Nord ist magnetisch Nord;
 ohne lokale Deklinationskorrektur ist dies kein geografisch wahres Nord.
 
 Angeforderte Raten: Bewegung/Quaternion/Magnetfeld 50 Hz, Druck 25 Hz,
@@ -82,7 +85,8 @@ wäre eine FIFO-Zeitstempel-Synchronisierung erforderlich.
 
 Sequenzlücken umfassen übersprungene Firmware-Takte und verlorene Notifications.
 Die Web-App trennt das 50-Hz-Empfangen von der 10-Hz-UI-Aktualisierung und hält bis
-zu 3000 Samples. Paketlücken >150 ms unterbrechen die gezeichnete Linie.
+zu 3000 Samples. Trends besitzen eine feste 60-Sekunden-Zeitachse; ältere Werte
+werden nicht gezeichnet. Paketlücken >150 ms unterbrechen die Linie.
 
 Höhe: `44330 × (1 − (p / p0)^0.19029495)`. Die App berechnet die Höhe aus Druck
 und einstellbarem QNH neu. Der relative Nullpunkt verwendet den aktuellen Druck

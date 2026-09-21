@@ -7,16 +7,19 @@
 BLEService service("a6e90001-7a25-4b48-9c6d-4f5b108a0001");
 BLECharacteristic stream("a6e90002-7a25-4b48-9c6d-4f5b108a0001",
                          BLERead | BLENotify, ez::PACKET_SIZE, true);
-SensorXYZ acc(SENSOR_ID_ACC), linear(SENSOR_ID_LACC), gyro(SENSOR_ID_GYRO), mag(SENSOR_ID_MAG);
+// Gravity, linear acceleration and rotation vector are fused virtual sensors
+// calculated on the BHI260AP. Both acceleration vectors are rotated into the
+// earth-fixed ENU frame with the fused quaternion before transmission.
+SensorXYZ gravity(SENSOR_ID_GRA), linear(SENSOR_ID_LACC), gyro(SENSOR_ID_GYRO), mag(SENSOR_ID_MAG);
 SensorQuaternion rotation(SENSOR_ID_RV);
 Sensor pressure(SENSOR_ID_BARO), temperature(SENSOR_ID_TEMP), humidity(SENSOR_ID_HUM), gas(SENSOR_ID_GAS);
 SensorBSEC bsec(SENSOR_ID_BSEC);
-SensorClass* sensors[] = {&acc,&linear,&gyro,&mag,&rotation,&pressure,&temperature,&humidity,&gas,&bsec};
+SensorClass* sensors[] = {&gravity,&linear,&gyro,&mag,&rotation,&pressure,&temperature,&humidity,&gas,&bsec};
 const float rates[] = {50,50,50,50,50,25,1,1,1,1};
 const uint32_t staleMs[] = {200,200,200,500,200,500,5000,5000,15000,15000};
 uint32_t updated[10]={}, sequence=0, nextSend=0;
 uint16_t present=0, seen=0, fresh=0;
-float accScale=NAN, linearScale=NAN, gyroScale=NAN, magScale=NAN;
+float gravityScale=NAN, linearScale=NAN, gyroScale=NAN, magScale=NAN;
 ez::Vec scaled(SensorXYZ& s, float k) { return {s.x()*k,s.y()*k,s.z()*k}; }
 void putVec(float* v, ez::Vec a) { v[0]=a.x; v[1]=a.y; v[2]=a.z; }
 bool recent(uint16_t valid, int i) { return valid & (1u<<i); }
@@ -33,11 +36,11 @@ void setup() {
   }
   pressure.setFactor(1.f/128.f); // Exact BHY2 hPa scale (library rounds to 0.0078).
   // Use the actual configured full scale: raw XYZ accessors return signed counts.
-  if (present&1) accScale=acc.getConfiguration().range * ez::G / 32768.f;
+  if (present&1) gravityScale=gravity.getConfiguration().range * ez::G / 32768.f;
   if (present&2) linearScale=linear.getConfiguration().range * ez::G / 32768.f;
   if (present&4) gyroScale=gyro.getConfiguration().range / 32768.f;
   if (present&8) magScale=mag.getConfiguration().range / 32768.f;
-  if (!(accScale>0)) accScale=NAN;
+  if (!(gravityScale>0)) gravityScale=NAN;
   if (!(linearScale>0)) linearScale=NAN;
   if (!(gyroScale>0)) gyroScale=NAN;
   if (!(magScale>0)) magScale=NAN;
@@ -80,12 +83,17 @@ void loop() {
     v[12]=q.x; v[13]=q.y; v[14]=q.z; v[15]=q.w;
     v[23]=rotation.accuracy();
   }
-  if (recent(valid,0) && recent(valid,4) && aligned(0) && isfinite(accScale))
-    putVec(v,ez::earth(scaled(acc,accScale),q));
-  else valid &= ~1u;
-  if (recent(valid,1) && recent(valid,4) && aligned(1) && isfinite(linearScale))
-    putVec(v+3,ez::earth(scaled(linear,linearScale),q));
-  else valid &= ~2u;
+  const bool gravityOk=recent(valid,0) && recent(valid,4) && aligned(0) && isfinite(gravityScale);
+  const bool linearOk=recent(valid,1) && recent(valid,4) && aligned(1) && isfinite(linearScale);
+  const ez::Vec gravityEarth=gravityOk ? ez::earth(scaled(gravity,gravityScale),q) : ez::Vec{NAN,NAN,NAN};
+  const ez::Vec linearEarth=linearOk ? ez::earth(scaled(linear,linearScale),q) : ez::Vec{NAN,NAN,NAN};
+  if (linearOk) putVec(v+3,linearEarth); else valid &= ~2u;
+  if (gravityOk && linearOk) {
+    // Fused total acceleration: a = linear acceleration + gravity.
+    putVec(v,{linearEarth.x+gravityEarth.x,
+              linearEarth.y+gravityEarth.y,
+              linearEarth.z+gravityEarth.z});
+  } else valid &= ~1u;
   if (recent(valid,2) && isfinite(gyroScale)) putVec(v+6,scaled(gyro,gyroScale));
   else valid &= ~4u;
   if (recent(valid,3) && isfinite(magScale)) putVec(v+9,scaled(mag,magScale));

@@ -42,3 +42,8 @@ export function sequenceGap(previous, current) {
 export function groupValid(sample, bit) {
   return Boolean(sample.valid & (1 << bit));
 }
+
+export function samplesInWindow(samples, latestReceived, windowMs = 60000) {
+  const cutoff = latestReceived - windowMs;
+  return samples.filter(sample => sample.received >= cutoff && sample.received <= latestReceived);
+}

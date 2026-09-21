@@ -1,8 +1,8 @@
-import {SERVICE_UUID, CHARACTERISTIC_UUID, fields, decodeTelemetry, altitudeFromPressure, sequenceGap, groupValid} from './protocol.js';
+import {SERVICE_UUID, CHARACTERISTIC_UUID, fields, decodeTelemetry, altitudeFromPressure, sequenceGap, samplesInWindow} from './protocol.js';
 
 const $ = id => document.getElementById(id);
-const ui = Object.fromEntries(['status','connect','demo','altitude','relativeAltitude','vario','pressure','temperature','humidity','rate','lost','qnh','window','zero','pause','export','message','gas','iaq','eco2','bvoc','quat','bsec'].map(id=>[id,$(id)]));
-const MAX_SAMPLES=3000, STALE_MS=1500;
+const ui = Object.fromEntries(['status','connect','demo','altitude','relativeAltitude','vario','pressure','temperature','humidity','rate','lost','qnh','zero','pause','export','message','gas','iaq','eco2','bvoc','quat','bsec','magX','magY','magZ'].map(id=>[id,$(id)]));
+const MAX_SAMPLES=3000, WINDOW_MS=60000, STALE_MS=1500;
 let samples=[], device=null, characteristic=null, lastSequence=null, lost=0, paused=false, demoTimer=null, zeroPressure=null, packetTimes=[], lastPacketAt=0, invalidPackets=0, repaintHandle=0;
 let qnh=Number(localStorage.getItem('qnh')||1013.25);
 ui.qnh.value=qnh.toFixed(2);
@@ -12,7 +12,6 @@ const chartDefs={
   linearChart:[['linearE','#32d6d0'],['linearN','#ffb84d'],['linearU','#68a9ff']],
   accChart:[['accE','#32d6d0'],['accN','#ffb84d'],['accU','#68a9ff']],
   gyroChart:[['gyroX','#32d6d0'],['gyroY','#ffb84d'],['gyroZ','#68a9ff']],
-  magChart:[['magX','#32d6d0'],['magY','#ffb84d'],['magZ','#68a9ff']],
   environmentChart:[['temperature','#ffb84d'],['humidity','#68a9ff']],
   airChart:[['iaq','#32d6d0'],['eco2','#ffb84d'],['bvoc','#68a9ff']]
 };
@@ -70,16 +69,19 @@ function drawChart(canvas, series, visible){
   let vals=[];visible.forEach(s=>series.forEach(([key])=>{const v=s[key];if(Number.isFinite(v))vals.push(v)})); if(!vals.length){c.fillStyle='#7595a1';c.fillText('Noch keine gültigen Daten',p.l,30);return}
   let min=Math.min(...vals),max=Math.max(...vals);if(min===max){min-=1;max+=1}const pad=(max-min)*.12;min-=pad;max+=pad;
   c.strokeStyle='#1a4352';c.fillStyle='#7595a1';c.font='11px system-ui';c.lineWidth=1;for(let i=0;i<4;i++){const y=p.t+(H-p.t-p.b)*i/3;c.beginPath();c.moveTo(p.l,y);c.lineTo(W-p.r,y);c.stroke();const label=(max-(max-min)*i/3).toFixed(Math.abs(max-min)<10?1:0);c.fillText(label,4,y+4)}
-  const t0=visible[0].received,t1=visible.at(-1).received||t0+1;
+  // Keep a fixed 60-second axis. During the first minute the unused portion
+  // stays empty instead of stretching a few samples across the full graph.
+  const t1=visible.at(-1).received,t0=t1-WINDOW_MS;
   for(const [key,color] of series){c.strokeStyle=color;c.lineWidth=1.7;c.beginPath();let drawing=false,lastT=0;for(const s of visible){const v=s[key],x=p.l+(s.received-t0)/Math.max(1,t1-t0)*(W-p.l-p.r),y=p.t+(max-v)/(max-min)*(H-p.t-p.b);if(!Number.isFinite(v)){drawing=false;continue}if(!drawing||s.received-lastT>150){c.moveTo(x,y);drawing=true}else c.lineTo(x,y);lastT=s.received}c.stroke()}
-  c.fillStyle='#7595a1';c.fillText(`−${ui.window.value} s`,p.l,H-5);c.fillText('jetzt',W-38,H-5);
+  c.fillStyle='#7595a1';c.fillText('−60 s',p.l,H-5);c.fillText('jetzt',W-38,H-5);
 }
 
 function repaint(){
   if(!paused){const latest=samples.at(-1);if(latest){
     ui.altitude.textContent=fmt(latest.altitude,1);ui.relativeAltitude.textContent=`Relativ: ${fmt(latest.relativeAltitude,1)} m`;ui.vario.textContent=fmt(latest.vario,1);ui.pressure.textContent=fmt(latest.pressure,1);ui.temperature.textContent=fmt(latest.temperature,1);ui.humidity.textContent=fmt(latest.humidity,1);ui.rate.textContent=(packetTimes.length/2).toFixed(0);ui.lost.textContent=lost;
+    ui.magX.textContent=fmt(latest.magX,1);ui.magY.textContent=fmt(latest.magY,1);ui.magZ.textContent=fmt(latest.magZ,1);
     ui.gas.textContent=fmt(latest.gas,0);ui.iaq.textContent=fmt(latest.iaq,0);ui.eco2.textContent=fmt(latest.eco2,0);ui.bvoc.textContent=fmt(latest.bvoc,2);ui.quat.textContent=[latest.quatX,latest.quatY,latest.quatZ,latest.quatW].map(x=>fmt(x,3)).join(' / ');ui.bsec.textContent=fmt(latest.bsecAccuracy,0);
-    const cutoff=latest.received-Number(ui.window.value)*1000,visible=samples.filter(s=>s.received>=cutoff);for(const [id,defs] of Object.entries(chartDefs))drawChart($(id),defs,visible);
+    const visible=samplesInWindow(samples,latest.received,WINDOW_MS);for(const [id,defs] of Object.entries(chartDefs))drawChart($(id),defs,visible);
   }}
   if(lastPacketAt&&Date.now()-lastPacketAt>STALE_MS&&!demoTimer&&device?.gatt?.connected)setStatus('Daten veraltet','error');
   repaintHandle=setTimeout(repaint,100);

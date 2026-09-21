@@ -11,8 +11,9 @@ Android-Browser mit Web-Bluetooth-Unterstützung können sie direkt verwenden.
 3. **Bluetooth verbinden** wählen und `EZ-Vario` auswählen.
 4. QNH einstellen; optional die relative Höhe nullen.
 
-Die Seite verarbeitet die Messwerte ausschließlich lokal. Sie zeigt bis zu 60
-Sekunden Verlauf, Paketdurchsatz und Sequenzlücken und kann alle gespeicherten
+Die Seite verarbeitet die Messwerte ausschließlich lokal. Alle Trends zeigen ein
+festes Fenster der letzten 60 Sekunden. Das Magnetfeld erscheint als aktueller
+X/Y/Z-Wert. Die Seite zeigt Paketdurchsatz und Sequenzlücken und kann alle gespeicherten
 Samples als CSV teilen oder herunterladen. **Demo starten** funktioniert ohne
 Hardware.
 

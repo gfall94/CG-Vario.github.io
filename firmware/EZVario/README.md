@@ -21,8 +21,10 @@ und Initialisierungsfehler. Der Sketch startet auch ohne geöffneten Serial Moni
 
 Es werden alle physikalischen Sensortypen des Boards erfasst: Beschleunigung und
 Drehrate des BHI260AP, Magnetfeld des BMM150, Druck des BMP390 sowie Temperatur,
-Feuchte und Gaswiderstand des BME688. Der Sensorhub stellt die im Protokoll
-beschriebenen virtuellen Messkanäle bereit. Doppelte Wake-up-/Raw-/Pass-through-
+Feuchte und Gaswiderstand des BME688. Der Sensorhub berechnet per Bosch-Fusion
+den Gravitationsvektor, die lineare Beschleunigung und den Rotation Vector. Die
+Firmware transformiert beide Beschleunigungsvektoren mit dessen Quaternion von
+den Geräteachsen nach Ost/Nord/Oben. Doppelte Wake-up-/Raw-/Pass-through-
 Varianten, Schrittzähler, Gesten und kundenspezifische Gas-Klassifikatoren sind
 keine zusätzlichen physikalischen Sensoren und werden nicht aktiviert.
 
@@ -40,7 +42,7 @@ Details stehen in `Software/PROTOKOLL.md`.
 
 ## Hardware-Abnahme
 
-1. Board ruhig in verschiedenen Lagen: lineare ENU-Beschleunigung nahe 0,
+1. Board ruhig in verschiedenen Lagen: fusionierte lineare ENU-Beschleunigung nahe 0,
    Gesamtbeschleunigung nahe (0,0,+9,81) m/s².
 2. Definierte Bewegung nach oben, Osten und magnetisch Norden: korrekte Vorzeichen;
    90°-Drehung des Boards darf den Erdbezug nicht mitdrehen. Dabei Magnetometer
