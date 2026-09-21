@@ -5,7 +5,18 @@ const sample=(i,h,a=0,imu=true)=>({millis:(i*20)>>>0,standardAltitude:h,linearU:
 test('stationary pressure noise and IMU bias do not create sustained climb',()=>{
  const f=new VarioFilter();let energy=0,n=0;
  for(let i=0;i<3000;i++){const v=f.update(sample(i,100+.2*Math.sin(i*1.7),.12+.04*Math.sin(i*2.3)));if(i>2000){energy+=v*v;n++;}}
- assert.ok(Math.sqrt(energy/n)<.15);assert.ok(Math.abs(f.x[2]-.12)<.04);
+ assert.ok(Math.sqrt(energy/n)<.05);assert.ok(Math.abs(f.x[2]-.12)<.04);
+});
+test('suppresses realistic stationary pressure and acceleration noise',()=>{
+ const f=new VarioFilter();let seed=123456789,energy=0,peak=0,n=0;
+ const noise=()=>{seed=(1664525*seed+1013904223)>>>0;return seed/0xffffffff-.5;};
+ for(let i=0;i<6000;i++){
+  const h=100+.45*noise()+.12*Math.sin(i*.19),a=.09+.16*noise()+.05*Math.sin(i*.7);
+  const v=f.update(sample(i,h,a));
+  if(i>3000){energy+=v*v;peak=Math.max(peak,Math.abs(v));n++;}
+ }
+ assert.ok(Math.sqrt(energy/n)<.06,`RMS ${Math.sqrt(energy/n)}`);
+ assert.ok(peak<.16,`peak ${peak}`);
 });
 test('follows acceleration promptly and settles on constant climb',()=>{
  const f=new VarioFilter();let atTransition=0,last=0;

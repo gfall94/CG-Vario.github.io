@@ -2,7 +2,7 @@
 // SI units. Device millis, not Bluetooth arrival intervals, drive prediction.
 export class VarioFilter {
   constructor() { this.reset(); }
-  reset() { this.x=null; this.time=null; this.lastBaro=null; this.output=NaN; this.mode='Warte auf Druck'; }
+  reset() { this.x=null; this.time=null; this.lastBaro=null; this.output=NaN; this.accel=NaN; this.mode='Warte auf Druck'; }
   update(s) {
     const baro=Boolean(s.valid & 32) && Number.isFinite(s.standardAltitude);
     const fresh=baro && Boolean(s.fresh & 32);
@@ -17,18 +17,26 @@ export class VarioFilter {
       this.lastBaro=s.millis; this.output=0;
     }
     if(dt>0) {
-      const d2=dt*dt/2, a=imu?s.linearU-this.x[2]:0;
+      if(imu) {
+        if(!Number.isFinite(this.accel)) this.accel=s.linearU;
+        // BHI linear acceleration is responsive but still contains vibration
+        // and attitude jitter. This short low-pass removes those impulses.
+        this.accel+=(1-Math.exp(-dt/.12))*(s.linearU-this.accel);
+      } else this.accel=NaN;
+      const d2=dt*dt/2, a=imu?this.accel-this.x[2]:0;
       this.x[0]+=this.x[1]*dt+a*d2; this.x[1]+=a*dt;
       const F=[[1,dt,imu?-d2:0],[0,1,imu?-dt:0],[0,0,1]];
       const P=this.P, next=Array.from({length:3},()=>[0,0,0]);
       for(let i=0;i<3;i++)for(let j=0;j<3;j++)for(let k=0;k<3;k++)for(let l=0;l<3;l++)next[i][j]+=F[i][k]*P[k][l]*F[j][l];
       // Continuous white acceleration uncertainty, increased for baro-only mode.
-      const q=imu?.5:4;
+      const q=imu?.08:.35;
       next[0][0]+=q*dt**3/3; next[0][1]+=q*dt*dt/2; next[1][0]+=q*dt*dt/2; next[1][1]+=q*dt;
-      next[2][2]+=.0004*dt; this.P=next;
+      next[2][2]+=.00005*dt; this.P=next;
     }
     if(fresh) {
-      const P=this.P, R=.36, residual=s.standardAltitude-this.x[0], S=P[0][0]+R;
+      // A single BMP390 altitude sample is deliberately treated as noisy.
+      // Acceleration provides the fast response; pressure anchors the estimate.
+      const P=this.P, R=2.25, residual=s.standardAltitude-this.x[0], S=P[0][0]+R;
       // Reject isolated pressure spikes; sustained absence eventually resets.
       if(Math.abs(residual)<Math.max(4,6*Math.sqrt(S))) {
         const K=P.map(row=>row[0]/S);
@@ -43,8 +51,11 @@ export class VarioFilter {
     }
     if(((s.millis-this.lastBaro)>>>0)>1500) { this.reset(); return NaN; }
     this.mode=imu?'Höhe + Beschleunigung':'Nur Barometer';
-    // 150 ms display smoothing removes jitter while retaining acceleration response.
-    this.output+=(1-Math.exp(-dt/.15))*(this.x[1]-this.output);
+    // Adaptive smoothing: calm air gets a stable display, while a real vertical
+    // acceleration opens the filter for a prompt paraglider-vario response.
+    const dynamic=imu && Math.abs(this.accel-this.x[2])>.35;
+    const tau=dynamic?.10:.55;
+    this.output+=(1-Math.exp(-dt/tau))*(this.x[1]-this.output);
     return this.output;
   }
 }

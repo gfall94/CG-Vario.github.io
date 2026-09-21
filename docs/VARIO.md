@@ -11,9 +11,12 @@ Der Filter verwendet Standarddruckhöhe, sodass QNH und relativer Nullpunkt
 keine Geschwindigkeitssprünge auslösen. Als dt dient der uint32-Zeitstempel
 des Nicla; Bluetooth-Bündelung verändert dadurch nicht die Integration.
 
-Startparameter: Höhen-Messvarianz 0,36 m²; Beschleunigungs-Prozessrauschen
-0,5 m²/s³, ohne IMU 4 m²/s³; Bias-Random-Walk 0,0004 m²/s⁵.
-Eine zusätzliche Glättung mit 150 ms Zeitkonstante beruhigt Anzeige und Trend.
+Startparameter: Höhen-Messvarianz 2,25 m²; Beschleunigungs-Prozessrauschen
+0,08 m²/s³, ohne IMU 0,35 m²/s³; Bias-Random-Walk 0,00005 m²/s⁵.
+Die Beschleunigung wird mit 120 ms Zeitkonstante vorgefiltert. Die Anzeige nutzt
+adaptiv 550 ms in ruhiger Luft und 100 ms bei mehr als 0,35 m/s² vertikaler
+Beschleunigung. So bleibt schwaches Steigen ohne Totzone sichtbar, während echte
+Steigwechsel schnell durchkommen.
 Diese Parameter sind mit synthetischen Bewegungen geprüft, nicht flugerprobt.
 Das Ergebnis ist Vertikalgeschwindigkeit, kein totalenergiekompensiertes Vario.
 

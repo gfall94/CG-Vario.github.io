@@ -1,5 +1,5 @@
-import {SERVICE_UUID, CHARACTERISTIC_UUID, fields, decodeTelemetry, altitudeFromPressure, sequenceGap, samplesInWindow} from './protocol.js?v=4';
-import {VarioFilter} from './vario.js?v=4';
+import {SERVICE_UUID, CHARACTERISTIC_UUID, fields, decodeTelemetry, altitudeFromPressure, sequenceGap, samplesInWindow} from './protocol.js?v=5';
+import {VarioFilter} from './vario.js?v=5';
 const filter=new VarioFilter();
 
 const $ = id => document.getElementById(id);
