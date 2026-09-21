@@ -27,7 +27,8 @@ npx serve .
 ```
 
 Web Bluetooth erfordert einen sicheren Ursprung (HTTPS; localhost ist für die
-lokale Entwicklung ebenfalls erlaubt). Der Workflow `.github/workflows/pages.yml`
-testet und veröffentlicht jeden Push auf `main` über GitHub Pages.
+lokale Entwicklung ebenfalls erlaubt). GitHub Pages veröffentlicht automatisch
+den Inhalt von `main /`; `.github/workflows/test.yml` prüft bei jedem Push den
+Protokolldecoder.
 
 Das vollständige Paketformat ist in `docs/PROTOKOLL.md` beschrieben.

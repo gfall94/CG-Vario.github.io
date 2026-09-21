@@ -8,8 +8,8 @@
   beschädigte Pakete, Gültigkeitsmasken, Höhenformel, Sequenzlücken und den
   uint32-Überlauf.
 - Das Dashboard enthält keine Laufzeitabhängigkeit von einem CDN oder Framework.
-  Der GitHub-Actions-Workflow führt die Tests bei jedem Push aus und stellt die
-  Seite über GitHub Pages bereit.
+  Der GitHub-Actions-Workflow führt die Tests bei jedem Push aus. GitHub Pages
+  veröffentlicht automatisch den Inhalt des Hauptbranches.
 
 ## Am Zielsystem zu prüfen
 
@@ -23,4 +23,3 @@
   den Kalibrierstatus beobachten.
 
 Ein erfolgreicher Kompilationstest ersetzt diese Hardware-Abnahme nicht.
-
