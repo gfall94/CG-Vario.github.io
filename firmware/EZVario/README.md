@@ -1,0 +1,58 @@
+# Nicla Sense ME Firmware
+
+`EZVario.ino` mit Arduino IDE 2 öffnen. Board-Paket **Arduino Mbed OS Nicla
+Boards**, Board **Arduino Nicla Sense ME**, Bibliotheken **Arduino_BHY2 1.0.8**
+und **ArduinoBLE 2.1.0** installieren. Board-Core: **4.6.0**.
+
+Alternativ:
+
+```sh
+arduino-cli core update-index
+arduino-cli core install arduino:mbed_nicla@4.6.0
+arduino-cli lib install Arduino_BHY2@1.0.8 ArduinoBLE@2.1.0
+arduino-cli compile --export-binaries --fqbn arduino:mbed_nicla:nicla_sense Software/Nicla/EZVario
+arduino-cli board list
+arduino-cli upload -p COM_PORT --fqbn arduino:mbed_nicla:nicla_sense Software/Nicla/EZVario
+```
+
+COM_PORT durch den tatsächlichen Port ersetzen. Ein angeschlossenes Board wird nicht
+automatisch überschrieben. USB-Serial zeigt mit 115200 Baud fehlende Sensoren
+und Initialisierungsfehler. Der Sketch startet auch ohne geöffneten Serial Monitor.
+
+Es werden alle physikalischen Sensortypen des Boards erfasst: Beschleunigung und
+Drehrate des BHI260AP, Magnetfeld des BMM150, Druck des BMP390 sowie Temperatur,
+Feuchte und Gaswiderstand des BME688. Der Sensorhub stellt die im Protokoll
+beschriebenen virtuellen Messkanäle bereit. Doppelte Wake-up-/Raw-/Pass-through-
+Varianten, Schrittzähler, Gesten und kundenspezifische Gas-Klassifikatoren sind
+keine zusätzlichen physikalischen Sensoren und werden nicht aktiviert.
+
+BSEC IAQ/eCO₂/bVOC sind optionale, von der installierten Hub-Firmware abhängige
+Schätzwerte. Sie ersetzen keine direkten CO₂-/VOC-Messgeräte. Falls der Hub
+SENSOR_ID_BSEC nicht bereitstellt, zeigt die App diese Kanäle als nicht verfügbar.
+Bei fehlenden Grundsensoren zuerst Arduino_BHY2/Board-Paket und die BHI-Firmware
+prüfen; die Bibliothek enthält ein `BHYFirmwareUpdate`-Beispiel.
+
+Die BLE-Verbindung bleibt still, bis Bluefy bzw. der Browser Notifications auf
+der Telemetrie-Charakteristik abonniert. Danach streamt sie automatisch.
+Mindestens ATT-MTU 127 ist erforderlich. Die gewünschte 50-Hz-Rate ist ein
+Zielwert; Empfangsrate und Sequenzlücken sind im Web-Dashboard sichtbar. Weitere
+Details stehen in `Software/PROTOKOLL.md`.
+
+## Hardware-Abnahme
+
+1. Board ruhig in verschiedenen Lagen: lineare ENU-Beschleunigung nahe 0,
+   Gesamtbeschleunigung nahe (0,0,+9,81) m/s².
+2. Definierte Bewegung nach oben, Osten und magnetisch Norden: korrekte Vorzeichen;
+   90°-Drehung des Boards darf den Erdbezug nicht mitdrehen. Dabei Magnetometer
+   von Metall/Magneten fernhalten und die geschätzte Richtungsunsicherheit beachten.
+3. Druck mit Referenz vergleichen; QNH oder bekannten Referenzdruck einstellen.
+   Bei Höhenzunahme muss Druck sinken und Höhe steigen.
+4. In Bluefy auf iOS und einem Web-Bluetooth-Browser auf Android: MTU ≥127,
+   mehrere Minuten ungefähr 50 Hz, Paketlücken beobachten; Bluetooth aus/an,
+   außer Reichweite, erneut verbinden.
+5. Gas/BSEC mehrere Minuten aufwärmen und Kalibrierstatus beobachten.
+
+Die Bibliothek liefert zuletzt empfangene Werte ohne zugängliche individuelle
+FIFO-Zeitstempel. Der Sketch prüft deren Host-Alter; für schnelle Rotationen kann
+die verbleibende zeitliche Abweichung den Erdbezug verschlechtern.
+

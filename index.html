@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#071b26">
+  <meta name="description" content="Live-Dashboard für das EZ-Vario auf Arduino Nicla Sense ME">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <title>CG Vario</title>
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="mark">CG</span><div><h1>Vario</h1><p>Nicla Sense ME · Live-Telemetrie</p></div></div>
+    <div id="status" class="status offline"><i></i><span>Nicht verbunden</span></div>
+  </header>
+
+  <main>
+    <section class="hero panel">
+      <div>
+        <p class="eyebrow">BAROMETRISCHE HÖHE</p>
+        <div class="altitude"><strong id="altitude">–</strong><span>m</span></div>
+        <p id="relativeAltitude" class="relative">Relativ: – m</p>
+      </div>
+      <div class="actions">
+        <button id="connect" class="primary">Bluetooth verbinden</button>
+        <button id="demo">Demo starten</button>
+      </div>
+    </section>
+
+    <section class="metrics">
+      <article class="metric"><span>Steigen / Sinken</span><strong id="vario">–</strong><small>m/s</small></article>
+      <article class="metric"><span>Luftdruck</span><strong id="pressure">–</strong><small>hPa</small></article>
+      <article class="metric"><span>Temperatur</span><strong id="temperature">–</strong><small>°C</small></article>
+      <article class="metric"><span>Feuchte</span><strong id="humidity">–</strong><small>%</small></article>
+      <article class="metric"><span>Datenrate</span><strong id="rate">0</strong><small>Hz</small></article>
+      <article class="metric"><span>Paketlücken</span><strong id="lost">0</strong><small>Pakete</small></article>
+    </section>
+
+    <section class="toolbar panel">
+      <label>QNH <span><input id="qnh" type="number" min="800" max="1100" step="0.1" value="1013.25"> hPa</span></label>
+      <label>Zeitraum <select id="window"><option value="10">10 s</option><option value="20">20 s</option><option value="60" selected>60 s</option></select></label>
+      <button id="zero">Höhe nullen</button>
+      <button id="pause">Ansicht pausieren</button>
+      <button id="export">CSV exportieren</button>
+    </section>
+
+    <section class="charts">
+      <article class="chart panel wide"><div class="chart-title"><div><h2>Höhe</h2><p>QNH und relativer Nullpunkt</p></div><div class="legend"><span class="cyan">Absolut</span><span class="amber">Relativ</span></div></div><canvas id="altitudeChart"></canvas></article>
+      <article class="chart panel"><div class="chart-title"><div><h2>Lineare Beschleunigung</h2><p>Erdbezug · m/s²</p></div><div class="legend axes"><span>E</span><span>N</span><span>U</span></div></div><canvas id="linearChart"></canvas></article>
+      <article class="chart panel"><div class="chart-title"><div><h2>Beschleunigung + g</h2><p>Erdbezug · m/s²</p></div><div class="legend axes"><span>E</span><span>N</span><span>U</span></div></div><canvas id="accChart"></canvas></article>
+      <article class="chart panel"><div class="chart-title"><div><h2>Drehrate</h2><p>Geräteachsen · °/s</p></div><div class="legend axes"><span>X</span><span>Y</span><span>Z</span></div></div><canvas id="gyroChart"></canvas></article>
+      <article class="chart panel"><div class="chart-title"><div><h2>Magnetfeld</h2><p>Geräteachsen · µT</p></div><div class="legend axes"><span>X</span><span>Y</span><span>Z</span></div></div><canvas id="magChart"></canvas></article>
+      <article class="chart panel"><div class="chart-title"><div><h2>Umgebung</h2><p>Temperatur °C · Feuchte %</p></div></div><canvas id="environmentChart"></canvas></article>
+      <article class="chart panel"><div class="chart-title"><div><h2>Luftqualität</h2><p>IAQ · eCO₂ ppm · bVOC ppm</p></div></div><canvas id="airChart"></canvas></article>
+    </section>
+
+    <details class="panel diagnostics">
+      <summary>Weitere Sensorwerte</summary>
+      <div class="diagnostic-grid">
+        <p>Gaswiderstand <strong id="gas">–</strong> Ω</p><p>IAQ <strong id="iaq">–</strong></p>
+        <p>eCO₂ <strong id="eco2">–</strong> ppm</p><p>bVOC <strong id="bvoc">–</strong> ppm</p>
+        <p>Quaternion x/y/z/w <strong id="quat">–</strong></p><p>BSEC-Status <strong id="bsec">–</strong></p>
+      </div>
+    </details>
+    <p id="message" class="message">In Bluefy öffnen und „Bluetooth verbinden“ antippen.</p>
+  </main>
+  <footer>Messwerte bleiben lokal im Browser. Höhe und Luftgüte sind Schätzwerte.</footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
