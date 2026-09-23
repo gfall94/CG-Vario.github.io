@@ -1,23 +1,19 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import vm from 'node:vm';
-import {readFileSync} from 'node:fs';
-import * as protocol from '../protocol.js';
-import {VarioFilter} from '../vario.js';
+import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';import * as protocol from '../protocol.js';
 
-test('Bluefy without Promise screen API or storage still connects and renders packets',async()=>{
- const elements=new Map(),timers=[];let notify;
- const context2d=new Proxy({}, {get:()=>()=>{}});
- const element=id=>{if(!elements.has(id))elements.set(id,{textContent:'',value:'',className:'',querySelector:()=>element('statusText'),getBoundingClientRect:()=>({width:400,height:200}),getContext:()=>context2d});return elements.get(id);};
- const ch={addEventListener:(name,handler)=>{notify=handler;},startNotifications:async()=>{}};
- const device={name:'EZ-Vario',addEventListener(){},gatt:{connected:true,connect:async()=>({getPrimaryService:async()=>({getCharacteristic:async()=>ch})}),disconnect(){this.connected=false;}}};
- const context=vm.createContext({...protocol,VarioFilter,console,DataView,ArrayBuffer,performance:{now:()=>1000},devicePixelRatio:1,document:{getElementById:element},localStorage:{getItem(){throw Error('blocked');}},navigator:{bluetooth:{requestDevice:async()=>device,setScreenDimEnabled(){}}},setTimeout:fn=>{timers.push(fn);return timers.length;},setInterval(){},clearInterval(){}});
- const source=readFileSync(new URL('../app.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'');
- vm.runInContext(source,context);await element('connect').onclick();
- assert.equal(element('connect').textContent,'Trennen');
- const packet=new DataView(new ArrayBuffer(124));packet.setUint8(0,69);packet.setUint8(1,90);packet.setUint8(2,1);packet.setUint8(3,124);packet.setUint16(14,1023,true);packet.setUint16(16,1023,true);packet.setFloat32(84,1000,true);packet.setFloat32(88,22,true);packet.setFloat32(116,110,true);
- notify({target:{value:packet}});timers.shift()();
- assert.equal(element('pressure').textContent,'1000.0');assert.equal(element('vario').textContent,'0.0');assert.equal(element('filterMode').textContent,'Höhe + Beschleunigung');
- // A transient canvas failure must not permanently kill the render timer.
- element('varioChart').getContext=()=>{throw Error('canvas temporarily unavailable');};timers.shift()();assert.ok(timers.length>0);assert.match(element('message').textContent,/Anzeigefehler/);
-});
+function harness(){
+  const elements=new Map(),timeouts=new Map();let timerId=0,now=1000,notification,ack,lastWrite;
+  const ctx=new Proxy({}, {get:()=>()=>{}});
+  const element=id=>{if(!elements.has(id))elements.set(id,{id,textContent:'',value:'',className:'',style:{},append(){},getBoundingClientRect:()=>({width:400,height:180}),getContext:()=>ctx,reportValidity:()=>true});return elements.get(id);};
+  const config=()=>protocol.encodeCommand(0,0,{qnh:1013.25,baroSigma:1.5,accelTau:.12,responseTau:.55,averageSeconds:10,processNoise:.08});
+  const stream={addEventListener:(n,h)=>notification=h,removeEventListener(){},startNotifications:async()=>{}};
+  const control={addEventListener:(n,h)=>ack=h,removeEventListener(){},startNotifications:async()=>{},readValue:async()=>config(),writeValueWithResponse:async b=>{lastWrite=b;}};
+  const device={addEventListener(n,h){this.onDisconnect=h;},gatt:{connected:false,connect:async()=>{device.gatt.connected=true;return {getPrimaryService:async()=>({getCharacteristic:async uuid=>uuid===protocol.CONTROL_UUID?control:stream})};},disconnect(){this.connected=false;device.onDisconnect();}}};
+  const context=vm.createContext({...protocol,console,DataView,ArrayBuffer,performance:{now:()=>now},document:{getElementById:element,createElement:()=>({append(){}}),querySelectorAll:()=>[],documentElement:{}},navigator:{bluetooth:{requestDevice:async()=>device,setScreenDimEnabled(){}}},setTimeout:(f,ms)=>{timeouts.set(++timerId,{f,ms});return timerId;},clearTimeout:id=>timeouts.delete(id)});
+  const src=readFileSync(new URL('../app.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'');vm.runInContext(src,context);
+  return {element,connect:()=>element('connect').onclick(),device,context,notify:s=>notification({target:{value:s}}),ack:b=>ack({target:{value:b}}),write:()=>lastWrite,render:()=>vm.runInContext('render()',context),advance:()=>{now+=2000;},command:(op,s)=>{context.args={op,s};return vm.runInContext('command(args.op,args.s)',context);},timeouts};
+}
+function telemetry(version=2){const size=version===1?124:164,v=new DataView(new ArrayBuffer(size));v.setUint8(0,69);v.setUint8(1,90);v.setUint8(2,version);v.setUint8(3,size);v.setUint16(18,3,true);v.setFloat32(84,1000,true);if(version===2){v.setFloat32(124,1.23,true);v.setFloat32(132,987.6,true);}return v;}
+test('renders device-computed values and clears stale values',async()=>{const h=harness();await h.connect();h.notify(telemetry());h.render();assert.equal(h.element('vario').textContent,'+1.2');assert.equal(h.element('altitude').textContent,'988');assert.equal(h.element('pressure').textContent,'1000.0 hPa');h.advance();h.render();assert.equal(h.element('vario').textContent,'–');assert.equal(h.element('altitude').textContent,'–');assert.equal(h.element('zero').disabled,true);});
+test('only matching device acknowledgement confirms settings',async()=>{const h=harness();await h.connect();const s={qnh:1020,baroSigma:2,accelTau:.18,responseTau:.9,averageSeconds:15,processNoise:.06};const p=h.command(0,s);assert.equal(h.element('qnh').value,1013.25);const req=new DataView(h.write()).getUint16(4,true);h.ack(protocol.encodeCommand(0,req+1,s));assert.equal(h.element('qnh').value,1013.25);h.ack(protocol.encodeCommand(0,req,s));await p;assert.equal(h.element('qnh').value,1020);assert.equal(h.element('settingsStatus').textContent,'Vom Nicla bestätigt');});
+test('disconnect rejects pending commands and clears displayed speed',async()=>{const h=harness();await h.connect();h.notify(telemetry());const p=h.command(1);h.device.gatt.disconnect();await assert.rejects(p,/beendet/);h.render();assert.equal(h.element('vario').textContent,'–');assert.equal(h.element('deviceSettings').disabled,true);});
+test('legacy firmware explicitly needs update, no calculated replacement',async()=>{const h=harness();await h.connect();h.notify(telemetry(1));h.render();assert.equal(h.element('vario').textContent,'–');assert.match(h.element('message').textContent,/Protokoll 1/);});

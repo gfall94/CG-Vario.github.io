@@ -1,43 +1,38 @@
-# CG Vario Web-Dashboard
+# CG Vario · Flugcockpit
 
-Statische Web-Bluetooth-Anwendung für das EZ-Vario auf dem Arduino Nicla Sense
-ME. Auf iPhone/iPad wird die veröffentlichte HTTPS-Seite in **Bluefy** geöffnet.
-Android-Browser mit Web-Bluetooth-Unterstützung können sie direkt verwenden.
+Arduino Nicla Sense ME → gebündelte BLE-Telemetrie → Bluefy / Web Bluetooth.
 
-## Bedienung
+Die Firmware berechnet Steigrate aus Bosch-IMU-Fusion und Barometer, lernt den
+Beschleunigungsoffset und liefert einen separaten Mittelwert. QNH-Höhe, relativer
+Nullpunkt, Flugzeit und Extremwerte laufen ebenfalls auf dem Nicla. Der Browser
+zeigt Werte und einen 60-Sekunden-Trend und sendet bestätigte Geräteeinstellungen.
 
-1. Nicla mit der Firmware aus `firmware/EZVario` programmieren und einschalten.
-2. Die GitHub-Pages-Adresse in Bluefy öffnen.
-3. **Bluetooth verbinden** wählen und `EZ-Vario` auswählen.
-4. QNH einstellen; optional die relative Höhe nullen.
+## Verwenden
 
-Die Seite verarbeitet die Messwerte ausschließlich lokal. Alle Trends zeigen ein
-festes Fenster der letzten 60 Sekunden. Das Magnetfeld erscheint als aktueller
-X/Y/Z-Wert. Die Seite zeigt Paketdurchsatz und Sequenzlücken und kann alle gespeicherten
-Samples als CSV teilen oder herunterladen. **Demo starten** funktioniert ohne
-Hardware.
+1. **Neue Firmware erforderlich:** `firmware/EZVario/EZVario.ino` mit Arduino
+   Nicla Sense ME, Core 4.6.0, Arduino_BHY2 1.0.8 und ArduinoBLE 2.1.0 bauen und
+   aufspielen. [Firmware-Anleitung](firmware/EZVario/README.md).
+2. [Cockpit](https://gfall94.github.io/CG-Vario.github.io/?v=7) auf iOS in Bluefy
+   oder auf Android in einem Web-Bluetooth-Browser öffnen und verbinden.
+3. QNH und Filterprofil einstellen. „An Nicla senden“ übernimmt Einzelwerte;
+   die Bestätigung kommt vom Gerät. Profile wirken ebenfalls auf dem Gerät.
+4. Flug manuell starten: Nullpunkt und Statistik werden neu gesetzt. Flugende
+   hält die Statistik fest. BLE-Trennungen unterbrechen die Berechnung nicht.
 
-Das Binärformat nutzt eine 124-Byte-Notification mit 50 Hz. Bluefy bzw. das
-Betriebssystem muss dafür eine ATT-MTU von mindestens 127 Byte aushandeln.
+Einstellungen bleiben bis zum Neustart des Nicla erhalten. Ohne Verbindung sind
+Geräteaktionen deaktiviert. Alte Firmware wird erkannt und zeigt Rohsensoren
+sowie einen Update-Hinweis. Der Browser hat keinen Ersatzfilter.
 
-## Lokal prüfen
+Alle Sensoren bleiben in der Diagnose sichtbar; Export als CSV. Kein GPS oder
+Fahrtmesser vorhanden, deshalb keine erfundene Geschwindigkeit/Gleitzahl und
+keine Totalenergiekompensation. Der Filter wurde synthetisch getestet, noch
+nicht flugerprobt.
 
-```sh
-npm test
-npx serve .
-```
+## Entwicklung
 
-Web Bluetooth erfordert einen sicheren Ursprung (HTTPS; localhost ist für die
-lokale Entwicklung ebenfalls erlaubt). GitHub Pages veröffentlicht automatisch
-den Inhalt von `main /`; `.github/workflows/test.yml` prüft bei jedem Push den
-Protokolldecoder.
+`npm test`; C++-Test und Build siehe [Prüfung](docs/PRUEFUNG.md).
+Lokal über `python -m http.server 8765 --bind 127.0.0.1` öffnen. Web Bluetooth
+benötigt HTTPS oder localhost. GitHub Actions prüft JavaScript, den nativen
+C++-Filter und den vollständigen Nicla-Build.
 
-Das vollständige Paketformat ist in `docs/PROTOKOLL.md` beschrieben.
-
-Der Trend „Steigen / Sinken“ fusioniert die barometrische Höhe mit der vertikalen
-linearen Beschleunigung aus der Bosch-Sensorfusion. Ein Kalman-Filter schätzt
-auch den Beschleunigungsoffset; bei fehlender IMU wird barometrisch gefiltert.
-Details, Parameter und Testgrenzen: [Vario-Filter](docs/VARIO.md).
-Für diese Web-Aktualisierung ist kein erneutes Flashen der aktuellen Firmware
-erforderlich. Die Seite in Bluefy neu laden, damit die versionierten Dateien
-übernommen werden.
+[Algorithmus und Referenzvergleich](docs/VARIO.md) · [BLE-Protokoll](docs/PROTOKOLL.md)

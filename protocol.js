@@ -1,49 +1,35 @@
-export const SERVICE_UUID = 'a6e90001-7a25-4b48-9c6d-4f5b108a0001';
-export const CHARACTERISTIC_UUID = 'a6e90002-7a25-4b48-9c6d-4f5b108a0001';
-export const PACKET_SIZE = 124;
-export const VERSION = 1;
-
-export const fields = [
-  'accE','accN','accU','linearE','linearN','linearU','gyroX','gyroY','gyroZ',
-  'magX','magY','magZ','quatX','quatY','quatZ','quatW','pressure','temperature',
-  'humidity','gas','iaq','eco2','bvoc','headingError','standardAltitude','bsecAccuracy'
-];
-
-export function decodeTelemetry(input) {
-  const view = input instanceof DataView
-    ? input
-    : new DataView(input.buffer ?? input, input.byteOffset ?? 0, input.byteLength ?? input.byteLength);
-  if (view.byteLength !== PACKET_SIZE) throw new Error(`Paketlänge ${view.byteLength} statt ${PACKET_SIZE} Byte`);
-  if (view.getUint8(0) !== 0x45 || view.getUint8(1) !== 0x5a) throw new Error('Ungültige Paketkennung');
-  if (view.getUint8(2) !== VERSION) throw new Error(`Protokollversion ${view.getUint8(2)} wird nicht unterstützt`);
-  if (view.getUint8(3) !== PACKET_SIZE) throw new Error('Ungültige Längenangabe im Paket');
-  const sample = {
-    sequence: view.getUint32(4, true),
-    millis: view.getUint32(8, true),
-    present: view.getUint16(12, true),
-    valid: view.getUint16(14, true),
-    fresh: view.getUint16(16, true)
-  };
-  fields.forEach((field, index) => { sample[field] = view.getFloat32(20 + index * 4, true); });
-  return sample;
+export const SERVICE_UUID='a6e90001-7a25-4b48-9c6d-4f5b108a0001';
+export const CHARACTERISTIC_UUID='a6e90002-7a25-4b48-9c6d-4f5b108a0001';
+export const CONTROL_UUID='a6e90003-7a25-4b48-9c6d-4f5b108a0001';
+export const VERSION=2, PACKET_SIZE=164;
+export const fields=['accE','accN','accU','linearE','linearN','linearU','gyroX','gyroY','gyroZ','magX','magY','magZ','quatX','quatY','quatZ','quatW','pressure','temperature','humidity','gas','iaq','eco2','bvoc','headingError','standardAltitude','bsecAccuracy','vario','average','altitude','relativeAltitude','maxClimb','maxSink','maxAltitude','flightSeconds','accelBias','speedSigma'];
+export const settingFields=['qnh','baroSigma','accelTau','responseTau','averageSeconds','processNoise'];
+const viewOf=input=>input instanceof DataView?input:new DataView(input.buffer??input,input.byteOffset??0,input.byteLength);
+export function decodeTelemetry(input){
+  const v=viewOf(input);
+  if(v.byteLength<20)throw Error('Telemetriepaket zu kurz');
+  if(v.getUint8(0)!==69||v.getUint8(1)!==90)throw Error('Ungültige Paketkennung');
+  const version=v.getUint8(2),size=version===1?124:version===2?164:0;
+  if(!size)throw Error(`Protokollversion ${version} wird nicht unterstützt`);
+  if(v.byteLength!==size||v.getUint8(3)!==size)throw Error(`Paketlänge ${v.byteLength} statt ${size} Byte`);
+  const s={version,sequence:v.getUint32(4,true),millis:v.getUint32(8,true),present:v.getUint16(12,true),valid:v.getUint16(14,true),fresh:v.getUint16(16,true),status:v.getUint16(18,true)};
+  fields.forEach((key,i)=>s[key]=20+4*i<size?v.getFloat32(20+4*i,true):NaN);
+  // The legacy firmware has no on-device vario. Never silently recreate it here.
+  if(version===1)s.status=0;
+  return s;
 }
-
-export function altitudeFromPressure(pressureHpa, qnhHpa = 1013.25) {
-  if (!(pressureHpa > 0) || !(qnhHpa > 0)) return NaN;
-  return 44330 * (1 - Math.pow(pressureHpa / qnhHpa, 0.19029495));
+export function encodeCommand(opcode,request,settings={}){
+  const b=new ArrayBuffer(32),v=new DataView(b);
+  v.setUint8(0,69);v.setUint8(1,67);v.setUint8(2,1);v.setUint8(3,opcode);v.setUint16(4,request,true);
+  settingFields.forEach((key,i)=>v.setFloat32(8+4*i,settings[key]??0,true));
+  return b;
 }
-
-export function sequenceGap(previous, current) {
-  if (previous == null) return 0;
-  const delta = (current - previous) >>> 0;
-  return delta > 0 && delta < 0x80000000 ? Math.max(0, delta - 1) : 0;
+export function decodeSettings(input){
+  const v=viewOf(input);
+  if(v.byteLength!==32||v.getUint8(0)!==69||v.getUint8(1)!==67||v.getUint8(2)!==1)throw Error('Ungültige Gerätebestätigung');
+  const s={result:v.getUint8(3),request:v.getUint16(4,true),revision:v.getUint16(6,true)};
+  settingFields.forEach((key,i)=>{s[key]=v.getFloat32(8+4*i,true);if(!Number.isFinite(s[key]))throw Error('Ungültiger Einstellwert');});
+  return s;
 }
-
-export function groupValid(sample, bit) {
-  return Boolean(sample.valid & (1 << bit));
-}
-
-export function samplesInWindow(samples, latestReceived, windowMs = 60000) {
-  const cutoff = latestReceived - windowMs;
-  return samples.filter(sample => sample.received >= cutoff && sample.received <= latestReceived);
-}
+export function sequenceGap(previous,current){if(previous==null)return 0;const d=(current-previous)>>>0;return d>0&&d<0x80000000?Math.max(0,d-1):0;}
+export function samplesInWindow(samples,latest,window=60000){return samples.filter(s=>s.received>=latest-window&&s.received<=latest);}

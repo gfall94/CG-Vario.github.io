@@ -1,35 +1,93 @@
-# Vario-Filter
+# Vario auf dem Nicla
 
-Die Web-App verwendet einen linearen Kalman-Filter mit den Zuständen Höhe (m),
-Vertikalgeschwindigkeit (m/s) und vertikalem Beschleunigungsoffset (m/s²).
+Seit Protokoll 2 berechnet ausschließlich die Firmware Steigrate, mittlere
+Steigrate, QNH-Höhe, relative Höhe, Flugzeit und Extremwerte. Der Browser
+dekodiert, formatiert, zeichnet die letzten 60 Sekunden und sendet Befehle.
+Es gibt keinen JavaScript-Ersatzfilter und keine browserseitige Flugsimulation.
+
+## Vergleich der Referenzprojekte
+
+Untersucht am 23.09.2026, mit festgehaltenen Quellständen:
+
+| Projekt / Quelle | Methode | Verwendung in CG Vario |
+| --- | --- | --- |
+| [GNUVario kalmanvert](https://github.com/prunkdump/arduino-variometer/blob/ca3eba4b33fda434a6155199f07ba70a26076318/libraries/kalmanvert/kalmanvert.cpp) | Höhe/Geschwindigkeit mit Beschleunigungsprädiktion und Druckkorrektur; zeitstempelbasiertes dt | Dasselbe physikalische Grundprinzip; ergänzt um einen dritten Zustand für IMU-Bias |
+| [XCVarioPure VarioFilter](https://github.com/hjr/XCVarioPure/blob/7ac3f9e503fca97ce07108d36ce9ba5c8bacdf97/main/sensor/VarioFilter.cpp) | Mehrere Filtervarianten; bei FILTER=3 barometrischer Kalman-Filter, zeitlich einstellbare Dynamik und symmetrische Kovarianz | Einstellbare Reaktion; numerisch stabile Joseph-Korrektur; keine Übernahme der TE-/Airspeed-Kompensation |
+| [XCVarioPure AverageVario](https://github.com/hjr/XCVarioPure/blob/7ac3f9e503fca97ce07108d36ce9ba5c8bacdf97/main/AverageVario.cpp) | Separater, mehrstufiger Mittelwert positiver Thermikwerte | Getrennte schnelle und gemittelte Anzeige; hier bewusst ein vorzeichenbehafteter Mittelwert einschließlich Sinken |
+| [Open-Vario ov_app](https://github.com/open-vario/open-vario/blob/027bc4545b64c7c1bf7b0a2a019b3bc8668b6296/src/firmware/app/ov_app.cpp) | Steigrate über ein einstellbares Höhenfenster und anschließenden Mittelwert; Berechnung in der Firmware | Einstellbares Mittelwertfenster und Geräteverantwortung; die schnelle Anzeige nutzt zusätzlich die vorhandene Bosch-Fusion |
+
+Die Implementierung ist eigenständig aus den Zustandsgleichungen geschrieben;
+es wurden keine Quellcodeblöcke der Referenzprojekte übernommen. Insbesondere
+werden weder deren Hardwareparameter noch deren Lizenzhinweise pauschal kopiert.
+Der Nicla hat keinen Fahrtmesser und kein GPS: daher keine Totalenergie-, Netto-,
+Gleitzahl- oder Groundspeed-Anzeige mit erfundenen Eingangsgrößen.
+
+## Filter
+
+`firmware/EZVario/Vario.h` enthält einen vom Arduino-Framework unabhängigen
+Float32-Filter mit x = [relative Standarddruckhöhe, Geschwindigkeit, IMU-Bias].
+Der Ursprung nahe dem Startpunkt reduziert numerische Auslöschung bei großen
+absoluten Höhen. Die Druck-Höhenumrechnung verwendet Double-Zwischenschritte.
+
 Prädiktion: h += v·dt + (a−bias)·dt²/2; v += (a−bias)·dt.
-Die lineare ENU-Beschleunigung stammt aus der Bosch-Fusion und der
-Quaternion-Transformation in der Firmware. Die Gravitation ist bereits entfernt.
+Die vorgefilterte lineare Beschleunigung stammt aus dem BHI260AP und wird in
+der Firmware mittels Bosch-Quaternion in ENU rotiert. Gravitation wird nicht
+ein zweites Mal abgezogen. Die vorhandene Quaternion-Konvention bleibt erhalten.
+Hardwaretests bei Drehungen sind weiterhin notwendig.
 
-Nur neue, gültige Druckmessungen (fresh-Bit 5) korrigieren die Schätzung.
-Der Filter verwendet Standarddruckhöhe, sodass QNH und relativer Nullpunkt
-keine Geschwindigkeitssprünge auslösen. Als dt dient der uint32-Zeitstempel
-des Nicla; Bluetooth-Bündelung verändert dadurch nicht die Integration.
+Der 50-Hz-Takt läuft unabhängig von BLE-Verbindung und Subscription. Das echte
+Millis-dt berücksichtigt ausgefallene Rechentakte; alte Takte werden nicht
+nachträglich als Burst verarbeitet. Nur frische Druckmessungen korrigieren den
+Zustand. IMU-Werte älter als 80 ms werden nicht zur Integration verwendet.
+Die öffentliche BHY2-Sensor-API liefert hier keine individuellen FIFO-Zeitstempel;
+die Synchronisation bleibt deshalb durch den Host-Lesezeitpunkt begrenzt.
 
-Startparameter: Höhen-Messvarianz 2,25 m²; Beschleunigungs-Prozessrauschen
-0,08 m²/s³, ohne IMU 0,35 m²/s³; Bias-Random-Walk 0,00005 m²/s⁵.
-Die Beschleunigung wird mit 120 ms Zeitkonstante vorgefiltert. Die Anzeige nutzt
-adaptiv 550 ms in ruhiger Luft und 100 ms bei mehr als 0,35 m/s² vertikaler
-Beschleunigung. So bleibt schwaches Steigen ohne Totzone sichtbar, während echte
-Steigwechsel schnell durchkommen.
-Diese Parameter sind mit synthetischen Bewegungen geprüft, nicht flugerprobt.
-Das Ergebnis ist Vertikalgeschwindigkeit, kein totalenergiekompensiertes Vario.
+Das kontinuierliche Beschleunigungs-Prozessrauschen wird mit dt integriert;
+Vibration erhöht die Unsicherheit der IMU-Prädiktion. Bias-Random-Walk:
+0,00005 m²/s⁵. Messvarianz R = baroSigma². Druck-Innovationen oberhalb
+max(4 m, 6·sqrt(S)) werden verworfen; ab 2,5·sqrt(S) wird ihre Gewichtung weich
+reduziert. Joseph-Kovarianzupdate statt unsymmetrischer In-place-Korrektur.
 
-Ohne gültige IMU arbeitet der Filter barometrisch. Druckausreißer oberhalb
-max(4 m, 6·Innovationsstandardabweichung) werden verworfen. Nach 1,5 s ohne
-akzeptierte Druckkorrektur oder mehr als 0,5 s Paketabstand wird neu initialisiert.
-Bei fehlenden BLE-Paketen zeigt die Geschwindigkeitsanzeige einen Strich.
+Die Ausgabe blendet kontinuierlich zwischen eingestellter Dämpfung und schneller
+Reaktion bei vertikaler Beschleunigung. Es gibt keinen hart schaltenden
+Beschleunigungsschwellwert und keine Totzone für schwaches Steigen. Der separate
+2–30-s-Mittelwert integriert die ungedämpfte geschätzte Geschwindigkeit
+zeitgewichtet. Ein 10-Hz-Ringpuffer interpoliert den Anfang des Zeitfensters.
+Beim Start wird die tatsächlich vorhandene Dauer statt einer vollen, mit Nullen
+gefüllten Fensterlänge verwendet.
 
-Tests: Rauschen im Stillstand, Bias-Konvergenz, Beschleunigungsreaktion,
-konstantes Steigen/Sinken, Druckausreißer, alte Druck-Snapshots, Zeitüberlauf,
-Neustart und simulierte Browser-/BLE-Kompatibilität. Hardwaretests mit ruhendem,
-gedrehtem und vertikal bewegtem Nicla sind noch erforderlich.
+Nach mehr als 0,5 s Rechenpause oder 1,5 s ohne akzeptierten Druck wird neu
+initialisiert. Dafür wird eine neue Druckmessung verlangt. Zwei Sekunden
+Einlaufzeit bleiben als ungültig markiert; der Browser zeigt Striche. Ein
+verlorenes Paket oder eine Bluetooth-Trennung setzt den Firmwarefilter nicht
+zurück. Ohne IMU bleibt eine barometrische Schätzung verfügbar.
 
-Die Implementierung wurde eigenständig aus den Kalman-Zustandsgleichungen
-erstellt. Vergleichbares Zustandsmodell für Variometer:
-https://github.com/har-in-air/Kalmanfilter_altimeter_vario
+## Bedienung
+
+Profile Ruhig / Ausgewogen / Direkt werden auf dem Nicla erzeugt. QNH bleibt bei
+Profilwechsel erhalten. Einzelwerte: QNH 800–1100 hPa, Barometer-Sigma 0,3–3 m,
+IMU-Vorfilter 0,04–0,4 s, Ausgabedämpfung 0,1–2 s, Mittelwert 2–30 s,
+Prozessrauschen 0,02–1 m²/s³. Die Firmware prüft alle Werte inklusive NaN/Inf
+atomar vor der Übernahme. Änderungen setzen den Filterzustand nicht zurück.
+Standard wiederherstellen setzt auch QNH auf 1013,25 hPa.
+
+Einstellungen liegen im RAM des Nicla und überleben BLE-Trennungen, aber keinen
+Stromverlust/Neustart. Der Browser liest beim Verbinden den Gerätestand und
+überschreibt ihn nicht aus lokalem Browser-Speicher. Befehle benötigen passende
+Request-ID und positive Gerätebestätigung. Kein automatisches Wiederholen bei
+Timeout, insbesondere nicht bei Flugstart oder Nullpunkt.
+
+Flugstart erfolgt bewusst manuell auf dem Gerät per BLE-Befehl, setzt relative
+Höhe und Flugstatistik zurück. Flugende hält Zeit und Extremwerte fest. Bei
+Bluetooth-Verlust laufen Flugzeit, Sensorfusion und Statistik weiter. QNH
+beeinflusst nicht Steigrate und relativen Standardhöhen-Nullpunkt. Maximalhöhe
+ist die jeweils während des Fluges angezeigte QNH-Höhe; QNH-Wechsel korrigieren
+frühere Extremwerte nicht rückwirkend.
+
+## Messgrenzen
+
+Die Tests verwenden synthetische Bewegung und Störungen, keine aufgezeichneten
+Flugdaten. Noch nicht flugerprobt. Wetterdrift, Staudruck am Gehäuse und
+zeitversetzte IMU-Werte können durch den Filter allein nicht behoben werden.
+Eine ruhende Nullmessung, Drehversuche und vertikale Vergleichsbewegungen sind
+vor einer Beurteilung des tatsächlichen Fortschritts erforderlich.

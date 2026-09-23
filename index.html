@@ -1,80 +1,43 @@
 <!doctype html>
 <html lang="de">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#071b26">
-  <meta name="description" content="Live-Dashboard für das EZ-Vario auf Arduino Nicla Sense ME">
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=5">
-  <title>CG Vario</title>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#101c20"><meta name="description" content="CG Vario – dein Cockpit für den Arduino Nicla Sense ME">
+  <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="stylesheet" href="styles.css?v=7">
+  <title>CG Vario · Flugcockpit</title>
 </head>
 <body>
-  <header>
-    <div class="brand"><span class="mark">CG</span><div><h1>Vario</h1><p>Nicla Sense ME · Live-Telemetrie</p></div></div>
-    <div id="status" class="status offline"><i></i><span>Nicht verbunden</span></div>
-  </header>
-
+  <header><a class="brand" href="#cockpit"><b>CG</b> VARIO <span>FLUGCOCKPIT</span></a><div class="connection"><span id="status" role="status">Nicht verbunden</span><button id="connect">Verbinden</button></div></header>
   <main>
-    <section class="hero panel">
-      <div>
-        <p class="eyebrow">BAROMETRISCHE HÖHE</p>
-        <div class="altitude"><strong id="altitude">–</strong><span>m</span></div>
-        <p id="relativeAltitude" class="relative">Relativ: – m</p>
+    <nav aria-label="Bereiche"><a href="#cockpit">01 Cockpit</a><a href="#settings">02 Einstellungen</a><a href="#sensors">03 Sensoren</a></nav>
+    <section id="cockpit" class="cockpit" aria-label="Fluginstrument">
+      <div class="instrument">
+        <div class="instrument-top"><span>VERTIKALGESCHWINDIGKEIT</span><span id="filterMode">Warte auf Nicla</span></div>
+        <div class="vario-face"><div class="scale" aria-hidden="true"><span>+5</span><span>+2</span><span>0</span><span>−2</span><span>−5</span><div class="scale-track"><i id="varioBar"></i></div></div><div class="vario-number"><strong id="vario">–</strong><span>m/s</span><p>STEIGEN / SINKEN</p></div></div>
+        <div class="instrument-bottom"><div><span>MITTLERE STEIGRATE · <b id="averageWindow">–</b> s</span><strong id="average">–</strong><small>m/s</small></div><div><span>FLUGZEIT</span><strong id="flightTime">00:00:00</strong><small id="flightState">Nicht gestartet</small></div></div>
       </div>
-      <div class="actions">
-        <button id="connect" class="primary">Bluetooth verbinden</button>
-        <button id="demo">Demo starten</button>
-      </div>
+      <div class="altitudes"><article><span>HÖHE · QNH</span><div><strong id="altitude">–</strong><small>m</small></div><p>QNH <b id="qnhReadout">–</b> hPa</p></article><article><span>HÖHE · RELATIV</span><div><strong id="relativeAltitude">–</strong><small>m</small></div><button id="zero" disabled>Nullpunkt setzen</button></article><div class="flight-actions"><button id="startFlight" class="primary" disabled>Flug starten</button><button id="stopFlight" disabled>Flug beenden</button></div></div>
     </section>
-
-    <section class="metrics">
-      <article class="metric"><span>Steigen / Sinken</span><strong id="vario">–</strong><small>m/s</small></article>
-      <article class="metric"><span>Luftdruck</span><strong id="pressure">–</strong><small>hPa</small></article>
-      <article class="metric"><span>Temperatur</span><strong id="temperature">–</strong><small>°C</small></article>
-      <article class="metric"><span>Feuchte</span><strong id="humidity">–</strong><small>%</small></article>
-      <article class="metric"><span>Datenrate</span><strong id="rate">0</strong><small>Hz</small></article>
-      <article class="metric"><span>Paketlücken</span><strong id="lost">0</strong><small>Pakete</small></article>
+    <section class="flight-stats" aria-label="Flugstatistik"><div><span>MAX. STEIGEN</span><strong id="maxClimb">–</strong><small>m/s</small></div><div><span>MAX. SINKEN</span><strong id="maxSink">–</strong><small>m/s</small></div><div><span>MAX. HÖHE</span><strong id="maxAltitude">–</strong><small>m</small></div></section>
+    <section class="trend panel"><div class="section-title"><div><span class="eyebrow">DIE LETZTE MINUTE</span><h2>Steigen &amp; Sinken</h2></div><div class="legend"><span>Vario</span><span>Mittelwert</span></div></div><canvas id="varioChart" aria-label="Steigrate und mittlere Steigrate der letzten 60 Sekunden"></canvas><div class="trend-footer"><span>−60 s</span><span>jetzt</span></div></section>
+    <section id="settings" class="panel settings"><div class="section-title"><div><span class="eyebrow">DEIN FLUGGEFÜHL</span><h2>Vario abstimmen</h2></div><span id="settingsStatus" role="status">Gerät verbinden</span></div>
+      <p class="muted">Alle Messwerte werden auf dem Nicla berechnet. Änderungen gelten nach Gerätebestätigung und bleiben bis zum Neustart des Nicla erhalten.</p>
+      <fieldset id="deviceSettings" disabled><legend>Geräteeinstellungen</legend>
+        <div class="profiles" role="group" aria-label="Filterprofile"><button type="button" data-command="5"><b>Ruhig</b><span>Mehr Dämpfung</span></button><button type="button" data-command="6"><b>Ausgewogen</b><span>Für den Einstieg</span></button><button type="button" data-command="7"><b>Direkt</b><span>Schnellere Reaktion</span></button></div>
+        <form id="settingsForm"><div class="settings-grid">
+          <label>QNH <span>Referenzdruck für die absolute Höhe</span><div><input id="qnh" type="number" min="800" max="1100" step="0.01" required> hPa</div></label>
+          <label>Vario-Dämpfung <span>Größer = ruhiger; kleiner = schneller</span><div><input id="responseTau" type="number" min="0.1" max="2" step="0.01" required> s</div></label>
+          <label>Mittelwert-Fenster <span>Steigen und Sinken über diese Dauer</span><div><input id="averageSeconds" type="number" min="2" max="30" step="1" required> s</div></label>
+        </div><details class="advanced"><summary>Erweiterte Filtereinstellungen</summary><div class="settings-grid">
+          <label>Barometer-Rauschen <span>Größer = weniger Einfluss einzelner Druckwerte</span><div><input id="baroSigma" type="number" min="0.3" max="3" step="0.1" required> m σ</div></label>
+          <label>Beschleunigung glätten <span>Dämpft Vibrationen vor der Fusion</span><div><input id="accelTau" type="number" min="0.04" max="0.4" step="0.01" required> s</div></label>
+          <label>Prozessrauschen <span>Größer = stärkere Barometer-Korrektur</span><div><input id="processNoise" type="number" min="0.02" max="1" step="0.01" required> m²/s³</div></label>
+        </div></details><div class="settings-actions"><button class="primary" type="submit">An Nicla senden</button><button id="resetSettings" type="button">Standard wiederherstellen</button></div></form>
+      </fieldset>
     </section>
-
-    <section class="vector-readout panel">
-      <div><p class="eyebrow">MAGNETFELD · GERÄTEACHSEN</p><h2>Aktuelle Werte</h2></div>
-      <p><span>X</span><strong id="magX">–</strong><small>µT</small></p>
-      <p><span>Y</span><strong id="magY">–</strong><small>µT</small></p>
-      <p><span>Z</span><strong id="magZ">–</strong><small>µT</small></p>
-    </section>
-
-    <section class="toolbar panel">
-      <label>QNH <span><input id="qnh" type="number" min="800" max="1100" step="0.1" value="1013.25"> hPa</span></label>
-      <p class="window-label">Trendfenster <strong>letzte 60 s</strong></p>
-      <button id="zero">Höhe nullen</button>
-      <button id="pause">Ansicht pausieren</button>
-      <button id="export">CSV exportieren</button>
-    </section>
-
-    <section class="charts">
-      <article class="chart panel wide"><div class="chart-title"><div><h2>Steigen / Sinken</h2><p>m/s · <span id="filterMode">Warte auf Druck</span> · positiv = Steigen</p></div></div><canvas id="varioChart"></canvas></article>
-      <article class="chart panel wide"><div class="chart-title"><div><h2>Höhe</h2><p>QNH und relativer Nullpunkt</p></div><div class="legend"><span class="cyan">Absolut</span><span class="amber">Relativ</span></div></div><canvas id="altitudeChart"></canvas></article>
-      <article class="chart panel"><div class="chart-title"><div><h2>Lineare Beschleunigung</h2><p>Erdbezug · m/s²</p></div><div class="legend axes"><span>E</span><span>N</span><span>U</span></div></div><canvas id="linearChart"></canvas></article>
-      <article class="chart panel"><div class="chart-title"><div><h2>Beschleunigung + g</h2><p>Erdbezug · m/s²</p></div><div class="legend axes"><span>E</span><span>N</span><span>U</span></div></div><canvas id="accChart"></canvas></article>
-      <article class="chart panel"><div class="chart-title"><div><h2>Drehrate</h2><p>Geräteachsen · °/s</p></div><div class="legend axes"><span>X</span><span>Y</span><span>Z</span></div></div><canvas id="gyroChart"></canvas></article>
-      <article class="chart panel"><div class="chart-title"><div><h2>Umgebung</h2><p>Temperatur °C · Feuchte %</p></div></div><canvas id="environmentChart"></canvas></article>
-      <article class="chart panel"><div class="chart-title"><div><h2>Luftqualität</h2><p>IAQ · eCO₂ ppm · bVOC ppm</p></div></div><canvas id="airChart"></canvas></article>
-    </section>
-
-    <details class="panel diagnostics">
-      <summary>Weitere Sensorwerte</summary>
-      <div class="diagnostic-grid">
-        <p>Gaswiderstand <strong id="gas">–</strong> Ω</p><p>IAQ <strong id="iaq">–</strong></p>
-        <p>eCO₂ <strong id="eco2">–</strong> ppm</p><p>bVOC <strong id="bvoc">–</strong> ppm</p>
-        <p>Quaternion x/y/z/w <strong id="quat">–</strong></p><p>BSEC-Status <strong id="bsec">–</strong></p>
-      </div>
-    </details>
-    <p id="message" class="message">In Bluefy öffnen und „Bluetooth verbinden“ antippen.</p>
-  </main>
-  <footer>Messwerte bleiben lokal im Browser. Höhe und Luftgüte sind Schätzwerte.</footer>
-  <script>window.addEventListener("error",function(e){document.getElementById("message").textContent="Ladefehler: "+(e.message||"Bitte Seite neu laden");});</script>
-  <script type="module" src="app.js?v=5"></script>
-</body>
-</html>
+    <details id="sensors" class="panel sensors"><summary>Sensoren &amp; Verbindungsdiagnose</summary><div id="sensorGrid" class="sensor-grid"></div><div class="diagnostics"><span>Empfang: <b id="rate">0</b> Hz</span><span>Paketlücken: <b id="lost">0</b></span><span>Firmware-Protokoll: <b id="protocolVersion">–</b></span></div></details>
+    <div class="utilities"><button id="export">CSV exportieren</button><button id="fullscreen">Vollbild</button></div>
+    <p id="message" role="status">In Bluefy öffnen und mit deinem Nicla verbinden.</p>
+  </main><footer>CG VARIO <span>Nicla Sense ME · Messwerte bleiben auf deinem Gerät</span></footer>
+  <script type="module" src="app.js?v=7"></script>
+</body></html>

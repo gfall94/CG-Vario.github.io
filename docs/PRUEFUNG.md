@@ -1,25 +1,38 @@
-# Prüfstand 21.09.2026
+# Prüfung
 
-## Automatisch geprüft
+Automatisch:
 
-- Firmware für `arduino:mbed_nicla:nicla_sense` mit Core 4.6.0,
-  Arduino_BHY2 1.0.8 und ArduinoBLE 2.1.0 kompiliert.
-- JavaScript-Tests prüfen die Little-Endian-Dekodierung aller 26 Werte,
-  beschädigte Pakete, Gültigkeitsmasken, Höhenformel, Sequenzlücken und den
-  uint32-Überlauf.
-- Das Dashboard enthält keine Laufzeitabhängigkeit von einem CDN oder Framework.
-  Der GitHub-Actions-Workflow führt die Tests bei jedem Push aus. GitHub Pages
-  veröffentlicht automatisch den Inhalt des Hauptbranches.
+```sh
+npm test
+g++ -std=c++17 -O2 -Wall -Wextra -Werror test/firmware.cpp -o /tmp/vario-test
+/tmp/vario-test
+arduino-cli compile --fqbn arduino:mbed_nicla:nicla_sense firmware/EZVario
+```
 
-## Am Zielsystem zu prüfen
+Die C++-Tests führen denselben Filterheader wie der Nicla aus, keinen JS-Nachbau.
+Geprüft: Rauschen/IMU-Bias, Steigbeschleunigung, konstantes Steigen/Sinken,
+barometrischer Fallback, unregelmäßiges dt, Ausreißer, fehlender Druck,
+Millis-Überlauf, Profile, ungültige Einstellungen, Quaternion-Mathematik,
+Paketoffsets und Konfiguration. JS-Tests prüfen v1/v2-Dekodierung, Gerätewerte,
+Veraltung, Request-ID/Bestätigung, Verbindungsabbruch und Legacy-Hinweis.
 
-- Board flashen und eine echte Bluetooth-Verbindung in Bluefy herstellen.
-- Prüfen, ob iOS eine ATT-MTU von mindestens 127 Byte aushandelt und vollständige
-  124-Byte-Notifications liefert.
-- Empfangsrate und Paketlücken mehrere Minuten auf iOS und Android beobachten.
-- Beschleunigung in verschiedenen Lagen prüfen: linear nahe 0, mit Schwerkraft
-  nahe `(0, 0, +9,81)` m/s²; definierte Bewegungen in Ost/Nord/Oben ausführen.
-- Druck und Höhe gegen eine Referenz vergleichen sowie Gas/BSEC aufwärmen und
-  den Kalibrierstatus beobachten.
+Synthetischer Standardlauf: Stillstands-RMS 0,0124 m/s, Spitze 0,0327 m/s;
+Reaktion nach einer Sekunde mit 2 m/s² Beschleunigung: 1,573 m/s,
+eingeschwungen 2,000 m/s. Das sind Simulationswerte, keine Hardwaremessung.
 
-Ein erfolgreicher Kompilationstest ersetzt diese Hardware-Abnahme nicht.
+Hardware-Abnahme bleibt erforderlich:
+
+1. Stillstand in verschiedenen Lagen mindestens zwei Minuten aufzeichnen.
+   Lineare Beschleunigung nahe Null, keine länger anhaltende falsche Steigrate.
+2. Ruhende Drehungen, anschließend vertikale Bewegungen mit bekanntem Vorzeichen.
+   Der BHI-Quaternion und Host-Zeitversatz müssen physikalisch geprüft werden.
+3. Vergleich mit Referenzhöhe, QNH ändern: nur absolute Höhe verändert sich.
+4. BLE in Bluefy verbinden: 164 Byte vollständig; neue Einstellungen erst nach
+   bestätigtem Read/Notify sichtbar. Ungültige/fehlende Bestätigung testen.
+5. Flug starten, Bluetooth trennen und wieder verbinden: Flugzeit/Statistik
+   laufen auf dem Nicla weiter. Neustart setzt Einstellungen/Flug zurück.
+6. Druck-/IMU-Ausfall und Wiederanlauf prüfen; bei fehlender Telemetrie muss
+   die Anzeige nach 1,5 s Striche statt scheinbar aktueller Werte zeigen.
+
+Kein eindeutig als Nicla erkanntes USB-Gerät war bei der Umsetzung verfügbar.
+Ein Firmware-Upload und Live-BLE-/Flugtest wurden deshalb nicht durchgeführt.

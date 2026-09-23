@@ -34,9 +34,10 @@ SENSOR_ID_BSEC nicht bereitstellt, zeigt die App diese Kanäle als nicht verfüg
 Bei fehlenden Grundsensoren zuerst Arduino_BHY2/Board-Paket und die BHI-Firmware
 prüfen; die Bibliothek enthält ein `BHYFirmwareUpdate`-Beispiel.
 
-Die BLE-Verbindung bleibt still, bis Bluefy bzw. der Browser Notifications auf
-der Telemetrie-Charakteristik abonniert. Danach streamt sie automatisch.
-Mindestens ATT-MTU 127 ist erforderlich. Die gewünschte 50-Hz-Rate ist ein
+Sensorfusion, Variofilter, Höhen und Flugstatistik laufen kontinuierlich auf
+dem Nicla, auch ohne BLE-Verbindung. Die Telemetrie wird erst bei Subscription
+übertragen. Ein Paket enthält 164 Byte (Protokoll 2).
+Mindestens ATT-MTU 167 ist erforderlich. Die gewünschte 50-Hz-Rate ist ein
 Zielwert; Empfangsrate und Sequenzlücken sind im Web-Dashboard sichtbar. Weitere
 Details stehen in `Software/PROTOKOLL.md`.
 
@@ -49,7 +50,7 @@ Details stehen in `Software/PROTOKOLL.md`.
    von Metall/Magneten fernhalten und die geschätzte Richtungsunsicherheit beachten.
 3. Druck mit Referenz vergleichen; QNH oder bekannten Referenzdruck einstellen.
    Bei Höhenzunahme muss Druck sinken und Höhe steigen.
-4. In Bluefy auf iOS und einem Web-Bluetooth-Browser auf Android: MTU ≥127,
+4. In Bluefy auf iOS und einem Web-Bluetooth-Browser auf Android: MTU ≥167,
    mehrere Minuten ungefähr 50 Hz, Paketlücken beobachten; Bluetooth aus/an,
    außer Reichweite, erneut verbinden.
 5. Gas/BSEC mehrere Minuten aufwärmen und Kalibrierstatus beobachten.
@@ -58,3 +59,14 @@ Die Bibliothek liefert zuletzt empfangene Werte ohne zugängliche individuelle
 FIFO-Zeitstempel. Der Sketch prüft deren Host-Alter; für schnelle Rotationen kann
 die verbleibende zeitliche Abweichung den Erdbezug verschlechtern.
 
+## Einstellungen und Flugwerte
+
+`Vario.h` enthält den zustandsbasierten Höhen-/Steigraten-/Biasfilter und den
+zeitgewichteten Mittelwert. `Control.h` kodiert Gerätebestätigungen. Die zweite
+BLE-Charakteristik nimmt Filtereinstellungen, QNH, Nullpunkt sowie Flugstart/-ende
+entgegen. Grenzen und Gültigkeit prüft die Firmware. Einstellungen bleiben im
+RAM bis zum Neustart erhalten. Der Browser führt keine Vario- oder Höhenrechnung
+aus; mit alter Firmware erscheint deshalb ein Update-Hinweis.
+
+Vollständiger Build am 23.09.2026: 324336 Byte Flash (61 %), 41448 Byte statischer
+RAM (64 %), 22840 Byte für Heap/Stack verbleibend. Noch kein Live-Hardwaretest.

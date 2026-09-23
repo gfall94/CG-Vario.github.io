@@ -1,12 +1,42 @@
 #include <Arduino_BHY2.h>
 #include <ArduinoBLE.h>
 #include "Telemetry.h"
+#include "Control.h"
 
 // One compact characteristic. Web Bluetooth/Bluefy starts the stream by
 // subscribing, so no proprietary start command or MTU write is required.
 BLEService service("a6e90001-7a25-4b48-9c6d-4f5b108a0001");
 BLECharacteristic stream("a6e90002-7a25-4b48-9c6d-4f5b108a0001",
                          BLERead | BLENotify, ez::PACKET_SIZE, true);
+BLECharacteristic control("a6e90003-7a25-4b48-9c6d-4f5b108a0001",
+                          BLERead | BLEWrite | BLENotify, ez::CONTROL_SIZE, true);
+ez::Vario vario;
+uint16_t settingsRevision=0;
+float zeroHeight=NAN, maxClimb=NAN, maxSink=NAN, maxAltitude=NAN;
+bool flying=false;
+uint32_t flightStart=0, flightDuration=0;
+void replySettings(uint16_t request=0,uint8_t result=0) {
+  uint8_t b[ez::CONTROL_SIZE];ez::encodeSettings(b,vario.settings,request,settingsRevision,result);control.writeValue(b,sizeof(b));
+}
+void commands(uint32_t now) {
+  if(!control.written())return;
+  uint8_t b[ez::CONTROL_SIZE];
+  const int n=control.readValue(b,sizeof(b));
+  if(n!=ez::CONTROL_SIZE || b[0]!='E'||b[1]!='C'||b[2]!=1){replySettings(0,1);return;}
+  const uint16_t request=ez::read16(b+4);
+  bool ok=true;
+  switch(b[3]) {
+    case 0: ok=vario.configure(ez::readSettings(b));break;
+    case 1: ok=vario.ready;if(ok)zeroHeight=vario.height;break;
+    case 2: ok=vario.ready&&!flying;if(ok){flying=true;flightStart=now;flightDuration=0;zeroHeight=vario.height;maxClimb=maxSink=0;maxAltitude=NAN;}break;
+    case 3: if(flying){flightDuration=now-flightStart;flying=false;}break;
+    case 4: vario.configure(ez::Settings{});break;
+    case 5: case 6: case 7: vario.configure(ez::profile(b[3]-5,vario.settings.qnh));break;
+    default: ok=false;
+  }
+  if(ok)settingsRevision++;
+  replySettings(request,ok?0:1);
+}
 // Gravity, linear acceleration and rotation vector are fused virtual sensors
 // calculated on the BHI260AP. Both acceleration vectors are rotated into the
 // earth-fixed ENU frame with the fused quaternion before transmission.
@@ -48,12 +78,13 @@ void setup() {
   BLE.setLocalName("EZ-Vario");
   BLE.setDeviceName("EZ-Vario Nicla");
   BLE.setAdvertisedService(service);
-  service.addCharacteristic(stream); BLE.addService(service);
+  service.addCharacteristic(stream); service.addCharacteristic(control); BLE.addService(service);
   BLE.setConnectionInterval(6,12); // Request 7.5–15 ms; phone has final say.
   uint8_t initial[ez::PACKET_SIZE];
-  float emptyValues[26]; for (float& value : emptyValues) value=NAN;
+  float emptyValues[ez::VALUE_COUNT]; for (float& value : emptyValues) value=NAN;
   ez::encode(initial,0,millis(),present,0,0,emptyValues);
   stream.writeValue(initial,sizeof(initial));
+  replySettings();
   BLE.advertise();
   nextSend=millis()+20;
 }
@@ -61,6 +92,7 @@ void setup() {
 void loop() {
   BHY2.update(); BLE.poll();
   const uint32_t now=millis();
+  commands(now);
   for (int i=0;i<10;++i) {
     if (sensors[i]->dataAvailable()) {
       sensors[i]->clearDataAvailFlag(); updated[i]=now;
@@ -70,12 +102,11 @@ void loop() {
   if ((int32_t)(now-nextSend)<0) return;
   const uint32_t ticks=1+(now-nextSend)/20;
   nextSend += ticks*20; sequence += ticks; // Expose missed deadlines, never burst old data.
-  if (!BLE.connected() || !stream.subscribed()) return;
   uint16_t valid=0;
   for (int i=0;i<10;++i)
     // Temperature/humidity are on-change sensors: silence is not a stale sample.
     if ((seen&(1u<<i)) && (i==6 || i==7 || now-updated[i]<=staleMs[i])) valid |= 1u<<i;
-  float v[26]; for (float& x:v) x=NAN;
+  float v[ez::VALUE_COUNT]; for (float& x:v) x=NAN;
   ez::Quat q{rotation.x(),rotation.y(),rotation.z(),rotation.w()};
   const float qn=q.x*q.x+q.y*q.y+q.z*q.z+q.w*q.w;
   if (!isfinite(qn) || qn<0.81f || qn>1.21f) valid &= ~(1u<<4);
@@ -105,8 +136,22 @@ void loop() {
   if (recent(valid,9)) {
     v[20]=bsec.iaq(); v[21]=bsec.co2_eq(); v[22]=bsec.b_voc_eq(); v[25]=bsec.accuracy();
   }
+  // Estimation runs even when no phone is connected. Fresh pressure is consumed
+  // exactly once; a held IMU sample is used only for at most 80 ms.
+  vario.update(now,v[24],(fresh&32)&&recent(valid,5),v[5],linearOk && now-updated[1]<=80);
+  uint16_t status=(vario.ready?1:0)|(vario.fused?2:0)|(flying?4:0);
+  if(vario.ready) {
+    if(!isfinite(zeroHeight))zeroHeight=vario.height;
+    v[26]=vario.speed;v[27]=vario.average;
+    // QNH affects altitude only, never the estimator's velocity state.
+    const double p=1013.25*pow(1-(double)vario.height/44330.0,1/0.19029495);
+    v[28]=ez::altitude((float)p,vario.settings.qnh);v[29]=vario.height-zeroHeight;
+    if(flying){maxClimb=fmaxf(maxClimb,v[26]);maxSink=fminf(maxSink,v[26]);maxAltitude=isfinite(maxAltitude)?fmaxf(maxAltitude,v[28]):v[28];}
+  }
+  v[30]=maxClimb;v[31]=maxSink;v[32]=maxAltitude;
+  v[33]=(flying?now-flightStart:flightDuration)*.001f;v[34]=vario.bias;v[35]=vario.sigma;
   uint8_t packet[ez::PACKET_SIZE];
-  ez::encode(packet,sequence,now,present,valid,fresh,v);
-  if (stream.writeValue(packet,sizeof(packet))) fresh=0;
+  ez::encode(packet,sequence,now,present,valid,fresh,v,status);
+  fresh=0;
+  if (BLE.connected() && stream.subscribed())stream.writeValue(packet,sizeof(packet));
 }
-

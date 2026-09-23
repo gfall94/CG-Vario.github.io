@@ -14,3 +14,14 @@ jobs:
         with:
           node-version: 22
       - run: npm test
+      - run: g++ -std=c++17 -O2 -Wall -Wextra -Werror test/firmware.cpp -o /tmp/vario-test && /tmp/vario-test
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+      - run: |
+          arduino-cli core update-index
+          arduino-cli core install arduino:mbed_nicla@4.6.0
+          arduino-cli lib install Arduino_BHY2@1.0.8 ArduinoBLE@2.1.0
+          arduino-cli compile --fqbn arduino:mbed_nicla:nicla_sense firmware/EZVario

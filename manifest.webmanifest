@@ -1,1 +1,1 @@
-{"name":"CG Vario","short_name":"Vario","description":"Web-BLE-Dashboard für Arduino Nicla Sense ME","start_url":"./","display":"standalone","background_color":"#06131b","theme_color":"#071b26","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}
+{"name":"CG Vario · Flugcockpit","short_name":"Vario","description":"Flugcockpit für Arduino Nicla Sense ME","start_url":"./","display":"standalone","background_color":"#eceee8","theme_color":"#101c20","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}
