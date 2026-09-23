@@ -1,5 +1,6 @@
 import {SERVICE_UUID,CHARACTERISTIC_UUID,CONTROL_UUID,fields,settingFields,decodeTelemetry,decodeSettings,encodeCommand,sequenceGap,samplesInWindow} from './protocol.js?v=7';
 
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const $=id=>document.getElementById(id);
 const sensorDefs=[['pressure','Luftdruck','hPa'],['temperature','Temperatur','°C'],['humidity','Feuchte','%'],['accE','Beschleunigung Ost','m/s²'],['accN','Beschleunigung Nord','m/s²'],['accU','Beschleunigung Oben + g','m/s²'],['linearE','Linear Ost','m/s²'],['linearN','Linear Nord','m/s²'],['linearU','Linear Oben','m/s²'],['gyroX','Drehrate X','°/s'],['gyroY','Drehrate Y','°/s'],['gyroZ','Drehrate Z','°/s'],['magX','Magnetfeld X','µT'],['magY','Magnetfeld Y','µT'],['magZ','Magnetfeld Z','µT'],['quatX','Quaternion X',''],['quatY','Quaternion Y',''],['quatZ','Quaternion Z',''],['quatW','Quaternion W',''],['headingError','Richtungsunsicherheit','rad'],['gas','Gaswiderstand','Ω'],['iaq','Luftgüte IAQ',''],['eco2','eCO₂','ppm'],['bvoc','bVOC','ppm'],['bsecAccuracy','BSEC-Status',''],['accelBias','Geschätzter Beschleunigungsoffset','m/s²'],['speedSigma','Geschätzte Vario-Unsicherheit','m/s']];
 for(const [key,label,unit] of sensorDefs){const row=document.createElement('div'),name=document.createElement('span'),value=document.createElement('strong');name.textContent=label;value.id=key;value.textContent=`– ${unit}`;row.append(name,value);$('sensorGrid').append(row);}
@@ -57,13 +58,19 @@ async function connect(){
   const attempt=++session;$('connect').disabled=true;
   try{
     device=await navigator.bluetooth.requestDevice({filters:[{services:[SERVICE_UUID]}]});
+    await delay(200);
     device.addEventListener('gattserverdisconnected',disconnected);
+    await delay(200);
     const server=await device.gatt.connect(),service=await server.getPrimaryService(SERVICE_UUID);
+    await delay(200);
     stream=await service.getCharacteristic(CHARACTERISTIC_UUID);
+    await delay(200);
     samples=[];latest=null;previous=null;lost=0;times=[];
     stream.addEventListener('characteristicvaluechanged',receive);await stream.startNotifications();
-    try{
+     await delay(200);
+     try{
       control=await service.getCharacteristic(CONTROL_UUID);
+      await delay(200);
       control.addEventListener('characteristicvaluechanged',settingsNotification);await control.startNotifications();
       const s=decodeSettings(await control.readValue());fillSettings(s);
       $('deviceSettings').disabled=false;$('settingsStatus').textContent='Vom Nicla gelesen';
