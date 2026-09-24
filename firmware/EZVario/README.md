@@ -77,12 +77,13 @@ externen Sensorhub-Flash.
 Bei einem vollständigen Flash-Erase während eines Firmware-Uploads können
 Einstellungen verloren gehen. Power-Cycle- und Live-Audiotest noch erforderlich.
 
-BLE wird als Erstes initialisiert, weil Cordio auf dem Nicla einen
-zusammenhängenden 13.000-Byte-Puffer benötigt. Speicher- oder Sensordienste vor
-`BLE.begin()` können den kleinen Heap so fragmentieren, dass der Start mit
-`_stack_buffer != NULL` abbricht.
+`BHY2.begin()` läuft vor `BLE.begin()`, entsprechend Arduinos offiziellem
+Nicla-Sense-ME-BLE-Beispiel. Die Board-/Sensorhub-Initialisierung darf den schon
+laufenden Cordio-Funkcontroller nicht nachträglich verändern. Cordio reserviert
+danach seinen zusammenhängenden 13.000-Byte-Puffer, bevor die einzelnen
+virtuellen Sensoren konfiguriert werden. Der schlanke Flashspeicher benötigt
+keinen dauerhaft belegten Heap.
 
-Für iPhone/iPad fordert die Firmware ein Verbindungsintervall von 15–30 ms und
-6 s Supervision Timeout an. Die Werte erfüllen Apples BLE-Parameterregeln; die
-frühere Anforderung 7,5–15 ms konnte von iOS abgelehnt werden und anschließend
-mit HCI-Grund `0x08` (Connection Timeout) abbrechen.
+Für iPhone/iPad erzwingt die Firmware keine eigenen Verbindungsparameter. Das
+iPhone ist der BLE-Central und wählt Intervall und Supervision Timeout. So wird
+während der GATT-Erkennung keine zusätzliche Parameteränderung ausgelöst.

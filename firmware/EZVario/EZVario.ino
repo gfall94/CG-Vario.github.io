@@ -66,13 +66,16 @@ bool aligned(int i) { return abs((int32_t)(updated[i]-updated[4])) <= 25; }
 
 void setup() {
   Serial.begin(115200); // No wait for USB: works from battery.
-  // Cordio requires one contiguous 13 kB heap block. Reserve it before any
-  // sensor or persistence subsystem can allocate or fragment the small heap.
-  if (!BLE.begin()) { Serial.println("BLE initialization failed"); while(true) delay(1000); }
-  if(!settingsStore.begin(vario.settings))Serial.println("Settings storage unavailable; changes will be rejected");
+  // Initialize the Nicla/BHI hardware before Cordio. BHY2.begin() changes the
+  // board's hardware state; doing that after BLE startup can stop radio events
+  // and make the central disconnect with HCI reason 0x08.
   if (!BHY2.begin(NICLA_STANDALONE)) {
     Serial.println("BHY2 initialization failed"); while (true) delay(1000);
   }
+  // Cordio needs a contiguous 13 kB heap block. Claim it before configuring
+  // the individual virtual sensors; persistence itself is allocation-free.
+  if (!BLE.begin()) { Serial.println("BLE initialization failed"); while(true) delay(1000); }
+  if(!settingsStore.begin(vario.settings))Serial.println("Settings storage unavailable; changes will be rejected");
   for (int i=0;i<10;++i) {
     if (sensors[i]->begin(rates[i],0)) present |= 1u<<i;
     else { Serial.print("Unavailable sensor ID: "); Serial.println(sensors[i]->id()); }
@@ -91,10 +94,9 @@ void setup() {
   BLE.setDeviceName("EZ-Vario Nicla");
   BLE.setAdvertisedService(service);
   service.addCharacteristic(stream); service.addCharacteristic(control); BLE.addService(service);
-  // Apple-compatible request: units are 1.25 ms and 10 ms respectively.
-  // 7.5–15 ms was outside Apple's rules and caused iOS supervision timeouts.
-  BLE.setConnectionInterval(12,24); // 15–30 ms; still supports the 50 Hz stream.
-  BLE.setSupervisionTimeout(600);   // 6 s, valid for iOS and the interval above.
+  // The iPhone is the BLE central and chooses the link parameters. Do not send
+  // a peripheral update request during discovery; this also matches Arduino's
+  // official Nicla Sense ME BLE example.
   uint8_t initial[ez::PACKET_SIZE];
   float emptyValues[ez::VALUE_COUNT]; for (float& value : emptyValues) value=NAN;
   ez::encode(initial,0,millis(),present,0,0,emptyValues);
