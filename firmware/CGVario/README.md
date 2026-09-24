@@ -1,6 +1,6 @@
 # Nicla Sense ME Firmware
 
-`EZVario.ino` mit Arduino IDE 2 öffnen. Board-Paket **Arduino Mbed OS Nicla
+`CGVario.ino` mit Arduino IDE 2 öffnen. Board-Paket **Arduino Mbed OS Nicla
 Boards**, Board **Arduino Nicla Sense ME**, Bibliotheken **Arduino_BHY2 1.0.8**
 und **ArduinoBLE 2.1.0** installieren. Board-Core: **4.6.0**.
 
@@ -10,9 +10,9 @@ Alternativ:
 arduino-cli core update-index
 arduino-cli core install arduino:mbed_nicla@4.6.0
 arduino-cli lib install Arduino_BHY2@1.0.8 ArduinoBLE@2.1.0
-arduino-cli compile --export-binaries --fqbn arduino:mbed_nicla:nicla_sense Software/Nicla/EZVario
+arduino-cli compile --export-binaries --fqbn arduino:mbed_nicla:nicla_sense Software/Nicla/CGVario
 arduino-cli board list
-arduino-cli upload -p COM_PORT --fqbn arduino:mbed_nicla:nicla_sense Software/Nicla/EZVario
+arduino-cli upload -p COM_PORT --fqbn arduino:mbed_nicla:nicla_sense Software/Nicla/CGVario
 ```
 
 COM_PORT durch den tatsächlichen Port ersetzen. Ein angeschlossenes Board wird nicht
@@ -36,21 +36,21 @@ prüfen; die Bibliothek enthält ein `BHYFirmwareUpdate`-Beispiel.
 
 Sensorfusion, Variofilter, Höhen und Flugstatistik laufen kontinuierlich auf
 dem Nicla, auch ohne BLE-Verbindung. Die Telemetrie wird erst bei Subscription
-übertragen. Ein Paket enthält 176 Byte (Protokoll 3, einschließlich Audio).
-Mindestens ATT-MTU 179 ist erforderlich. Die gewünschte 50-Hz-Rate ist ein
+übertragen. Ein Paket enthält 140 Byte (Protokoll 4, einschließlich Audio und
+G-Kraft). Mindestens ATT-MTU 143 ist erforderlich. Die gewünschte 50-Hz-Rate ist ein
 Zielwert; Empfangsrate und Sequenzlücken sind im Web-Dashboard sichtbar. Weitere
 Details stehen in `Software/PROTOKOLL.md`.
 
 ## Hardware-Abnahme
 
-1. Board ruhig in verschiedenen Lagen: fusionierte lineare ENU-Beschleunigung nahe 0,
-   Gesamtbeschleunigung nahe (0,0,+9,81) m/s².
+1. Board ruhig in verschiedenen Lagen: Gesamtbeschleunigung nahe (0,0,+9,81)
+   m/s² und G-Kraft nahe 1 g.
 2. Definierte Bewegung nach oben, Osten und magnetisch Norden: korrekte Vorzeichen;
    90°-Drehung des Boards darf den Erdbezug nicht mitdrehen. Dabei Magnetometer
    von Metall/Magneten fernhalten und die geschätzte Richtungsunsicherheit beachten.
 3. Druck mit Referenz vergleichen; QNH oder bekannten Referenzdruck einstellen.
    Bei Höhenzunahme muss Druck sinken und Höhe steigen.
-4. In Bluefy auf iOS und einem Web-Bluetooth-Browser auf Android: MTU ≥179,
+4. In Bluefy auf iOS und einem Web-Bluetooth-Browser auf Android: MTU ≥143,
    mehrere Minuten ungefähr 50 Hz, Paketlücken beobachten; Bluetooth aus/an,
    außer Reichweite, erneut verbinden.
 5. Gas/BSEC mehrere Minuten aufwärmen und Kalibrierstatus beobachten.
@@ -63,7 +63,8 @@ die verbleibende zeitliche Abweichung den Erdbezug verschlechtern.
 
 `Vario.h` enthält den zustandsbasierten Höhen-/Steigraten-/Biasfilter und den
 zeitgewichteten Mittelwert. `Control.h` kodiert Gerätebestätigungen. Die zweite
-BLE-Charakteristik nimmt Filtereinstellungen, QNH, Nullpunkt sowie Flugstart/-ende
+BLE-Charakteristik nimmt Filtereinstellungen, QNH, eine bekannte Referenzhöhe,
+Nullpunkt sowie Flugstart/-ende
 entgegen. Grenzen und Gültigkeit prüft die Firmware. Einstellungen bleiben im
 internen Flash dauerhaft erhalten. Der Browser führt keine Vario- oder Höhenrechnung
 aus; mit alter Firmware erscheint deshalb ein Update-Hinweis.

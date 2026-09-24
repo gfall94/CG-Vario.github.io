@@ -24,4 +24,4 @@ jobs:
           arduino-cli core update-index
           arduino-cli core install arduino:mbed_nicla@4.6.0
           arduino-cli lib install Arduino_BHY2@1.0.8 ArduinoBLE@2.1.0
-          arduino-cli compile --fqbn arduino:mbed_nicla:nicla_sense firmware/EZVario
+          arduino-cli compile --fqbn arduino:mbed_nicla:nicla_sense firmware/CGVario

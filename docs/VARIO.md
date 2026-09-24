@@ -9,7 +9,7 @@ Es gibt keinen JavaScript-Ersatzfilter und keine browserseitige Flugsimulation.
 
 Untersucht am 23.09.2026, mit festgehaltenen Quellständen:
 
-| Projekt / Quelle | Methode | Verwendung in CG Vario |
+| Projekt / Quelle | Methode | Verwendung in CG-Vario |
 | --- | --- | --- |
 | [GNUVario kalmanvert](https://github.com/prunkdump/arduino-variometer/blob/ca3eba4b33fda434a6155199f07ba70a26076318/libraries/kalmanvert/kalmanvert.cpp) | Höhe/Geschwindigkeit mit Beschleunigungsprädiktion und Druckkorrektur; zeitstempelbasiertes dt | Dasselbe physikalische Grundprinzip; ergänzt um einen dritten Zustand für IMU-Bias |
 | [XCVarioPure VarioFilter](https://github.com/hjr/XCVarioPure/blob/7ac3f9e503fca97ce07108d36ce9ba5c8bacdf97/main/sensor/VarioFilter.cpp) | Mehrere Filtervarianten; bei FILTER=3 barometrischer Kalman-Filter, zeitlich einstellbare Dynamik und symmetrische Kovarianz | Einstellbare Reaktion; numerisch stabile Joseph-Korrektur; keine Übernahme der TE-/Airspeed-Kompensation |
@@ -24,7 +24,7 @@ Gleitzahl- oder Groundspeed-Anzeige mit erfundenen Eingangsgrößen.
 
 ## Filter
 
-`firmware/EZVario/Vario.h` enthält einen vom Arduino-Framework unabhängigen
+`firmware/CGVario/Vario.h` enthält einen vom Arduino-Framework unabhängigen
 Float32-Filter mit x = [relative Standarddruckhöhe, Geschwindigkeit, IMU-Bias].
 Der Ursprung nahe dem Startpunkt reduziert numerische Auslöschung bei großen
 absoluten Höhen. Die Druck-Höhenumrechnung verwendet Double-Zwischenschritte.

@@ -1,4 +1,4 @@
-# CG Vario · Flugcockpit
+# CG-Vario · Flugcockpit
 
 Arduino Nicla Sense ME → gebündelte BLE-Telemetrie → Bluefy / Web Bluetooth.
 
@@ -9,10 +9,10 @@ zeigt Werte und einen 60-Sekunden-Trend und sendet bestätigte Geräteeinstellun
 
 ## Verwenden
 
-1. **Neue Firmware erforderlich:** `firmware/EZVario/EZVario.ino` mit Arduino
+1. **Neue Firmware erforderlich:** `firmware/CGVario/CGVario.ino` mit Arduino
    Nicla Sense ME, Core 4.6.0, Arduino_BHY2 1.0.8 und ArduinoBLE 2.1.0 bauen und
-   aufspielen. [Firmware-Anleitung](firmware/EZVario/README.md).
-2. [Cockpit](https://gfall94.github.io/CG-Vario.github.io/?v=9) auf iOS in Bluefy
+   aufspielen. [Firmware-Anleitung](firmware/CGVario/README.md).
+2. [Cockpit](https://gfall94.github.io/CG-Vario.github.io/?v=11) auf iOS in Bluefy
    oder auf Android in einem Web-Bluetooth-Browser öffnen und verbinden.
 3. QNH und Filterprofil einstellen. „An Nicla senden“ übernimmt Einzelwerte;
    die Bestätigung kommt vom Gerät. Profile wirken ebenfalls auf dem Gerät.
@@ -25,7 +25,7 @@ sowie einen Update-Hinweis. Der Browser hat keinen Ersatzfilter.
 
 ## Vario-Ton
 
-„Ton einschalten“ aktiviert Web Audio nach einem Antippen. Steigen erzeugt mit
+Das Antippen von „Verbinden“ aktiviert zugleich Web Audio. Steigen erzeugt mit
 zunehmender Steigrate höhere und schnellere Pieptöne, Sinken einen tiefer
 werdenden Dauerton. Im Audio-Profil sind neun Stützpunkte für Tonhöhe (Hz),
 Tonlänge und Pause (ms) sowie Steig-/Sinkschwellen einstellbar. Der Nicla
@@ -33,8 +33,8 @@ interpoliert das Profil und sendet die fertigen Tonparameter. Der Browser führt
 keine eigene Vario-Berechnung durch. Pro Stützpunkt gibt es eine zweisekündige
 Hörprobe des Entwurfs; „An Nicla senden“ speichert das gesamte Profil dauerhaft.
 
-Die Wiedergabelautstärke bleibt lokal im Browser gespeichert; Ton ist beim
-Seitenstart aus. Datenverlust, Trennung, Audio-Unterbrechung oder Verlassen der
+Die Standardlautstärke beträgt 75 Prozent und eine Änderung bleibt lokal im
+Browser gespeichert. Datenverlust, Trennung, Audio-Unterbrechung oder Verlassen der
 Seite schalten den Ton stumm. Für Bluefy das Dashboard im Vordergrund halten;
 Hintergrund-/Sperrbildschirm-Wiedergabe ist nicht zugesichert.
 
@@ -44,7 +44,9 @@ Charakteristik selbst als Notification zurück. Befehle (`EC`) und Antworten
 als bestätigte Einstellungen angezeigt. Eine positive Speicherbestätigung
 kommt erst nach erfolgreichem Flash-Write und Readback.
 
-Alle Sensoren bleiben in der Diagnose sichtbar; Export als CSV. Kein GPS oder
+Gesamtbeschleunigung, G-Kraft, Magnetfeld und Umweltsensoren bleiben in der
+Diagnose sichtbar; Export als CSV. Lineare ENU-Werte, Drehraten und Quaternion
+werden nicht übertragen. Kein GPS oder
 Fahrtmesser vorhanden, deshalb keine erfundene Geschwindigkeit/Gleitzahl und
 keine Totalenergiekompensation. Der Filter wurde synthetisch getestet, noch
 nicht flugerprobt.

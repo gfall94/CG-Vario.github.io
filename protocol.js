@@ -1,8 +1,9 @@
 export const SERVICE_UUID='a6e90001-7a25-4b48-9c6d-4f5b108a0001';
 export const CHARACTERISTIC_UUID='a6e90002-7a25-4b48-9c6d-4f5b108a0001';
 export const CONTROL_UUID='a6e90003-7a25-4b48-9c6d-4f5b108a0001';
-export const VERSION=3, PACKET_SIZE=176;
-export const fields=['accE','accN','accU','linearE','linearN','linearU','gyroX','gyroY','gyroZ','magX','magY','magZ','quatX','quatY','quatZ','quatW','pressure','temperature','humidity','gas','iaq','eco2','bvoc','headingError','standardAltitude','bsecAccuracy','vario','average','altitude','relativeAltitude','maxClimb','maxSink','maxAltitude','flightSeconds','accelBias','speedSigma','toneHz','tonePeriod','toneOn'];
+export const VERSION=4, PACKET_SIZE=140;
+export const fields=['accE','accN','accU','gForce','magX','magY','magZ','pressure','temperature','humidity','gas','iaq','eco2','bvoc','headingError','standardAltitude','bsecAccuracy','vario','average','altitude','relativeAltitude','maxClimb','maxSink','maxAltitude','flightSeconds','accelBias','speedSigma','toneHz','tonePeriod','toneOn'];
+const legacyFields=['accE','accN','accU','linearE','linearN','linearU','gyroX','gyroY','gyroZ','magX','magY','magZ','quatX','quatY','quatZ','quatW','pressure','temperature','humidity','gas','iaq','eco2','bvoc','headingError','standardAltitude','bsecAccuracy','vario','average','altitude','relativeAltitude','maxClimb','maxSink','maxAltitude','flightSeconds','accelBias','speedSigma','toneHz','tonePeriod','toneOn'];
 export const AUDIO_SPEEDS=[-10,-5,-2,0,.5,1,2,5,10];
 export const settingFields=['qnh','baroSigma','accelTau','responseTau','averageSeconds','processNoise','climbThreshold','sinkThreshold',...AUDIO_SPEEDS.flatMap((_,i)=>[`pitch${i}`,`length${i}`,`pause${i}`])];
 export const CONTROL_SIZE=148;
@@ -11,11 +12,12 @@ export function decodeTelemetry(input){
   const v=viewOf(input);
   if(v.byteLength<20)throw Error('Telemetriepaket zu kurz');
   if(v.getUint8(0)!==69||v.getUint8(1)!==90)throw Error('Ungültige Paketkennung');
-  const version=v.getUint8(2),size=version===1?124:version===2?164:version===3?176:0;
+  const version=v.getUint8(2),size=version===1?124:version===2?164:version===3?176:version===4?PACKET_SIZE:0;
   if(!size)throw Error(`Protokollversion ${version} wird nicht unterstützt`);
   if(v.byteLength!==size||v.getUint8(3)!==size)throw Error(`Paketlänge ${v.byteLength} statt ${size} Byte`);
   const s={version,sequence:v.getUint32(4,true),millis:v.getUint32(8,true),present:v.getUint16(12,true),valid:v.getUint16(14,true),fresh:v.getUint16(16,true),status:v.getUint16(18,true)};
-  fields.forEach((key,i)=>s[key]=20+4*i<size?v.getFloat32(20+4*i,true):NaN);
+  const packetFields=version===4?fields:legacyFields;
+  packetFields.forEach((key,i)=>s[key]=20+4*i<size?v.getFloat32(20+4*i,true):NaN);
   // The legacy firmware has no on-device vario. Never silently recreate it here.
   if(version===1)s.status=0;
   return s;
@@ -24,6 +26,7 @@ export function encodeCommand(opcode,request,settings={}){
   const b=new ArrayBuffer(CONTROL_SIZE),v=new DataView(b);
   v.setUint8(0,69);v.setUint8(1,67);v.setUint8(2,2);v.setUint8(3,opcode);v.setUint16(4,request,true);
   settingFields.forEach((key,i)=>v.setFloat32(8+4*i,settings[key]??0,true));
+  if(opcode===8)v.setFloat32(8,settings.calibrationAltitude,true);
   return b;
 }
 export function decodeSettings(input){

@@ -1,6 +1,6 @@
-#include "../firmware/EZVario/Vario.h"
-#include "../firmware/EZVario/Control.h"
-#include "../firmware/EZVario/VarioTone.h"
+#include "../firmware/CGVario/Vario.h"
+#include "../firmware/CGVario/Control.h"
+#include "../firmware/CGVario/VarioTone.h"
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
@@ -47,8 +47,10 @@ int main(){
   const float r=sqrtf(.5f);auto a=ez::earth({0,ez::G,0},{r,0,0,r});assert(fabsf(a.z+ez::G)<.001f);
   float values[ez::VALUE_COUNT];for(unsigned i=0;i<ez::VALUE_COUNT;i++)values[i]=i+.25f;
   uint8_t packet[ez::PACKET_SIZE];ez::encode(packet,42,500,1023,1023,32,values,3);
-  assert(sizeof(packet)==176&&packet[2]==3&&packet[3]==176&&ez::read16(packet+18)==3);
-  assert(ez::readFloat(packet+124)==26.25f);
+  assert(sizeof(packet)==140&&packet[2]==4&&packet[3]==140&&ez::read16(packet+18)==3);
+  assert(ez::readFloat(packet+20+4*ez::VARIO)==17.25f);
+  const float testQnh=ez::qnhForAltitude(1000,ez::altitude(1000));
+  assert(fabsf(testQnh-1013.25f)<.01f);
   uint8_t config[ez::CONTROL_SIZE];ez::Settings s;ez::encodeSettings(config,s,12,3,0);
   assert(ez::readSettings(config).valid());assert(ez::read16(config+4)==12);
   assert(config[1]=='S'&&config[2]==2);assert(ez::readSettings(config).audio.points[8].pitch==2400);

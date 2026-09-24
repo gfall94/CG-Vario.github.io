@@ -17,15 +17,15 @@ void setup() {
     while (true) delay(1000);
   }
 
-  BLE.setLocalName("EZ-Vario-DIAG");
-  BLE.setDeviceName("EZ-Vario BLE diagnostic");
+  BLE.setLocalName("CG-Vario-DIAG");
+  BLE.setDeviceName("CG-Vario BLE diagnostic");
   BLE.setAdvertisedService(diagnosticService);
   diagnosticService.addCharacteristic(uptimeCharacteristic);
   BLE.addService(diagnosticService);
   uptimeCharacteristic.writeValue(0);
   BLE.advertise();
 
-  Serial.println("Advertising as EZ-Vario-DIAG");
+  Serial.println("Advertising as CG-Vario-DIAG");
 }
 
 void loop() {

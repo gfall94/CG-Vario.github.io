@@ -4,10 +4,19 @@
 #include <math.h>
 
 namespace ez {
-constexpr uint8_t VERSION = 3;
-constexpr size_t VALUE_COUNT = 39;
+constexpr uint8_t VERSION = 4;
+constexpr size_t VALUE_COUNT = 30;
 constexpr size_t PACKET_SIZE = 20+4*VALUE_COUNT;
 constexpr float G = 9.80665f;
+enum ValueIndex : uint8_t {
+  ACC_E, ACC_N, ACC_U, G_FORCE,
+  MAG_X, MAG_Y, MAG_Z,
+  PRESSURE, TEMPERATURE, HUMIDITY, GAS, IAQ, ECO2, BVOC,
+  HEADING_ERROR, STANDARD_ALTITUDE, BSEC_ACCURACY,
+  VARIO, AVERAGE, ALTITUDE, RELATIVE_ALTITUDE,
+  MAX_CLIMB, MAX_SINK, MAX_ALTITUDE, FLIGHT_SECONDS,
+  ACCEL_BIAS, SPEED_SIGMA, TONE_HZ, TONE_PERIOD, TONE_ON
+};
 struct Vec { float x, y, z; };
 struct Quat { float x, y, z, w; };
 
@@ -24,6 +33,11 @@ inline Vec earth(Vec v, Quat q) {
 }
 inline float altitude(float hPa, float qnh=1013.25f) {
   return hPa > 0 && isfinite(hPa) && qnh>0 ? (float)(44330.0*(1-pow((double)hPa/qnh,0.19029495))) : NAN;
+}
+inline float qnhForAltitude(float hPa, float height) {
+  const float base=1.f-height/44330.f;
+  return hPa>0 && isfinite(hPa) && isfinite(height) && base>0
+    ? hPa/powf(base,1.f/0.19029495f) : NAN;
 }
 inline void u16(uint8_t* b, uint16_t v) { b[0]=v; b[1]=v>>8; }
 inline void u32(uint8_t* b, uint32_t v) {

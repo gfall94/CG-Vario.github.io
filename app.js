@@ -1,13 +1,13 @@
-import {SERVICE_UUID,CHARACTERISTIC_UUID,CONTROL_UUID,fields,settingFields,AUDIO_SPEEDS,decodeTelemetry,decodeSettings,isCommandEcho,validateSettings,encodeCommand,sequenceGap,samplesInWindow} from './protocol.js?v=9';
-import {VarioAudio} from './audio.js?v=9';
+import {SERVICE_UUID,CHARACTERISTIC_UUID,CONTROL_UUID,fields,settingFields,AUDIO_SPEEDS,decodeTelemetry,decodeSettings,isCommandEcho,validateSettings,encodeCommand,sequenceGap,samplesInWindow} from './protocol.js?v=11';
+import {VarioAudio} from './audio.js?v=11';
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const $=id=>document.getElementById(id);
 const audio=new VarioAudio();let previewTone=null,previewUntil=0;
 $('audioRows').innerHTML=AUDIO_SPEEDS.map((v,i)=>`<tr><th>${v>0?'+':''}${v} m/s</th><td><input aria-label="Tonhöhe bei ${v} m/s" id="pitch${i}" type="number" min="80" max="2500" step="1" required></td><td><input aria-label="Tonlänge bei ${v} m/s" id="length${i}" type="number" min="${i<3?0:40}" max="1000" step="1" ${i<3?'readonly':''} required></td><td><input aria-label="Pause bei ${v} m/s" id="pause${i}" type="number" min="${i<3?0:40}" max="1500" step="1" ${i<3?'readonly':''} required></td><td><button type="button" aria-label="Tonprobe bei ${v} m/s" data-preview="${i}">▶</button></td></tr>`).join('');
-try{const v=localStorage.getItem('varioVolume');if(v!==null)audio.setVolume(Number(v));}catch{}
+try{const v=localStorage.getItem('cgVarioVolumeV11');if(v!==null)audio.setVolume(Number(v));}catch{}
 $('audioVolume').value=Math.round(audio.volume*100);$('audioVolumeValue').textContent=`${Math.round(audio.volume*100)} %`;
-const sensorDefs=[['pressure','Luftdruck','hPa'],['temperature','Temperatur','°C'],['humidity','Feuchte','%'],['accE','Beschleunigung Ost','m/s²'],['accN','Beschleunigung Nord','m/s²'],['accU','Beschleunigung Oben + g','m/s²'],['linearE','Linear Ost','m/s²'],['linearN','Linear Nord','m/s²'],['linearU','Linear Oben','m/s²'],['gyroX','Drehrate X','°/s'],['gyroY','Drehrate Y','°/s'],['gyroZ','Drehrate Z','°/s'],['magX','Magnetfeld X','µT'],['magY','Magnetfeld Y','µT'],['magZ','Magnetfeld Z','µT'],['quatX','Quaternion X',''],['quatY','Quaternion Y',''],['quatZ','Quaternion Z',''],['quatW','Quaternion W',''],['headingError','Richtungsunsicherheit','rad'],['gas','Gaswiderstand','Ω'],['iaq','Luftgüte IAQ',''],['eco2','eCO₂','ppm'],['bvoc','bVOC','ppm'],['bsecAccuracy','BSEC-Status',''],['accelBias','Geschätzter Beschleunigungsoffset','m/s²'],['speedSigma','Geschätzte Vario-Unsicherheit','m/s']];
+const sensorDefs=[['pressure','Luftdruck','hPa'],['temperature','Temperatur','°C'],['humidity','Feuchte','%'],['accE','Beschleunigung Ost','m/s²'],['accN','Beschleunigung Nord','m/s²'],['accU','Beschleunigung Oben + g','m/s²'],['magX','Magnetfeld X','µT'],['magY','Magnetfeld Y','µT'],['magZ','Magnetfeld Z','µT'],['headingError','Richtungsunsicherheit','rad'],['gas','Gaswiderstand','Ω'],['iaq','Luftgüte IAQ',''],['eco2','eCO₂','ppm'],['bvoc','bVOC','ppm'],['bsecAccuracy','BSEC-Status',''],['accelBias','Geschätzter Beschleunigungsoffset','m/s²'],['speedSigma','Geschätzte Vario-Unsicherheit','m/s']];
 for(const [key,label,unit] of sensorDefs){const row=document.createElement('div'),name=document.createElement('span'),value=document.createElement('strong');name.textContent=label;value.id=key;value.textContent=`– ${unit}`;row.append(name,value);$('sensorGrid').append(row);}
 let device=null,stream=null,control=null,settings=null,pending=null,request=0,session=0;
 let samples=[],latest=null,previous=null,lost=0,times=[],connectedAt=0;
@@ -74,6 +74,9 @@ async function connect(){
   if(!navigator.bluetooth){message('Web Bluetooth ist nicht verfügbar. Bitte in Bluefy öffnen.',true);return;}
   const attempt=++session;$('connect').disabled=true;
   try{
+    // The connect tap supplies the user gesture required by Web Audio on iOS.
+    // This makes sound active automatically as part of every connection.
+    if(!audio.enabled&&audio.Context)try{await audio.enable();}catch(e){message(`Ton konnte nicht automatisch gestartet werden: ${e.message}`,true);}
     device=await navigator.bluetooth.requestDevice({filters:[{services:[SERVICE_UUID]}]});
     await delay(200);
     device.addEventListener('gattserverdisconnected',disconnected);
@@ -113,6 +116,9 @@ function render(){
   const now=performance.now(),fresh=device?.gatt?.connected&&latest&&now-latest.received<1500;
   const usable=fresh&&latest.version>=2&&(latest.status&1),flying=fresh&&Boolean(latest.status&4);
   for(const key of ['vario','average','altitude','relativeAltitude','maxClimb','maxSink','maxAltitude'])$(key).textContent=number(usable?latest[key]:NaN,key.includes('Altitude')||key==='altitude'?0:1,['vario','average','maxClimb','maxSink'].includes(key));
+  $('gForce').textContent=number(fresh?latest.gForce:NaN,2);
+  $('trendVario').textContent=number(usable?latest.vario:NaN,1,true);
+  $('trendAverage').textContent=number(usable?latest.average:NaN,1,true);
   const seconds=fresh&&Number.isFinite(latest.flightSeconds)?Math.floor(latest.flightSeconds):0;
   $('flightTime').textContent=fresh?[Math.floor(seconds/3600),Math.floor(seconds/60)%60,seconds%60].map(v=>String(v).padStart(2,'0')).join(':'):'–';
   $('flightState').textContent=flying?'Flug läuft':seconds>0?'Flug beendet':'Nicht gestartet';
@@ -135,9 +141,9 @@ async function exportCsv(){
 const run=fn=>()=>Promise.resolve().then(fn).catch(e=>message(e.message,true));
 $('connect').onclick=connect;
 $('settingsForm').onsubmit=e=>{e.preventDefault();if(!$('settingsForm').reportValidity())return;try{const values=draftSettings();validateSettings(values);command(0,values).catch(e=>message(e.message,true));}catch(error){message(error.message,true);}};
-$('settingsForm').oninput=()=>{$('settingsStatus').textContent='Entwurf · noch nicht gespeichert';drawAudioProfile();$('audioDraftStatus').textContent='Entwurf geändert – zum dauerhaften Speichern an Nicla senden.';};
+$('settingsForm').oninput=e=>{if(e.target.id==='knownAltitude')return;$('settingsStatus').textContent='Entwurf · noch nicht gespeichert';drawAudioProfile();$('audioDraftStatus').textContent='Entwurf geändert – zum dauerhaften Speichern an Nicla senden.';};
 $('audioToggle').onclick=async()=>{if(audio.enabled){audio.disable();previewUntil=0;}else try{await audio.enable();}catch(e){message(e.message,true);}audioTick(false);};
-$('audioVolume').oninput=()=>{audio.setVolume(Number($('audioVolume').value)/100);$('audioVolumeValue').textContent=`${Math.round(audio.volume*100)} %`;try{localStorage.setItem('varioVolume',audio.volume);}catch{}};
+$('audioVolume').oninput=()=>{audio.setVolume(Number($('audioVolume').value)/100);$('audioVolumeValue').textContent=`${Math.round(audio.volume*100)} %`;try{localStorage.setItem('cgVarioVolumeV11',audio.volume);}catch{}};
 for(const button of document.querySelectorAll('[data-preview]'))button.onclick=async()=>{
   try{const i=Number(button.dataset.preview),s=draftSettings();validateSettings(s);await audio.enable();previewTone={toneHz:s[`pitch${i}`],tonePeriod:i<3?0:(s[`length${i}`]+s[`pause${i}`])/1000,toneOn:i<3?0:s[`length${i}`]/1000};audio.mute();previewUntil=performance.now()+2000;message(`Tonprobe für ${AUDIO_SPEEDS[i]} m/s (Entwurf, noch nicht gespeichert).`);}catch(e){message(e.message,true);}
 };
@@ -153,6 +159,11 @@ function audioTick(schedule=true){if(document.hidden){audio.disable();previewUnt
 audioTick();
 for(const button of document.querySelectorAll('[data-command]'))button.onclick=run(()=>command(Number(button.dataset.command)));
 $('zero').onclick=run(()=>command(1));$('startFlight').onclick=run(()=>command(2));$('stopFlight').onclick=run(()=>command(3));$('resetSettings').onclick=run(()=>command(4));$('export').onclick=run(exportCsv);
+$('setAltitude').onclick=run(()=>{
+  const calibrationAltitude=Number($('knownAltitude').value);
+  if(!Number.isFinite(calibrationAltitude)||calibrationAltitude<-500||calibrationAltitude>9000)throw Error('Referenzhöhe muss zwischen −500 und 9000 m liegen.');
+  return command(8,{calibrationAltitude});
+});
 $('fullscreen').onclick=run(()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen?.());
 if(!document.documentElement.requestFullscreen)$('fullscreen').hidden=true;
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});

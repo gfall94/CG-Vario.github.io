@@ -2,12 +2,12 @@
 <html lang="de">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#08121b"><meta name="description" content="CG Vario – dein Cockpit für den Arduino Nicla Sense ME">
-  <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="stylesheet" href="styles.css?v=9">
-  <title>CG Vario · Flugcockpit</title>
+  <meta name="theme-color" content="#08121b"><meta name="description" content="CG-Vario – dein Cockpit für den Arduino Nicla Sense ME">
+  <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="stylesheet" href="styles.css?v=11">
+  <title>CG-Vario · Flugcockpit</title>
 </head>
 <body>
-  <header><a class="brand" href="#cockpit"><b>CG</b> VARIO <span>FLUGCOCKPIT</span></a><div class="connection"><span id="status" role="status">Nicht verbunden</span><button id="connect">Verbinden</button></div></header>
+  <header><a class="brand" href="#cockpit"><b>CG</b>-VARIO <span>FLUGCOCKPIT</span></a><div class="connection"><span id="status" role="status">Nicht verbunden</span><button id="connect">Verbinden</button></div></header>
   <main>
     <nav aria-label="Bereiche"><a href="#cockpit">01 Cockpit</a><a href="#settings">02 Einstellungen</a><a href="#sensors">03 Sensoren</a></nav>
     <section id="cockpit" class="cockpit" aria-label="Fluginstrument">
@@ -18,15 +18,16 @@
       </div>
       <div class="altitudes"><article><span>HÖHE · QNH</span><div><strong id="altitude">–</strong><small>m</small></div><p>QNH <b id="qnhReadout">–</b> hPa</p></article><article><span>HÖHE · RELATIV</span><div><strong id="relativeAltitude">–</strong><small>m</small></div><button id="zero" disabled>Nullpunkt setzen</button></article><div class="flight-actions"><button id="startFlight" class="primary" disabled>Flug starten</button><button id="stopFlight" disabled>Flug beenden</button></div></div>
     </section>
-    <section class="flight-stats" aria-label="Flugstatistik"><div><span>MAX. STEIGEN</span><strong id="maxClimb">–</strong><small>m/s</small></div><div><span>MAX. SINKEN</span><strong id="maxSink">–</strong><small>m/s</small></div><div><span>MAX. HÖHE</span><strong id="maxAltitude">–</strong><small>m</small></div></section>
-    <section class="trend panel"><div class="section-title"><div><span class="eyebrow">DIE LETZTE MINUTE</span><h2>Steigen &amp; Sinken</h2></div><div class="legend"><span>Vario</span><span>Mittelwert</span></div></div><canvas id="varioChart" aria-label="Steigrate und mittlere Steigrate der letzten 60 Sekunden"></canvas><div class="trend-footer"><span>−60 s</span><span>jetzt</span></div></section>
-    <section class="panel audio-player"><div class="section-title"><h2>Vario-Ton</h2><span id="audioStatus" role="status">Aus</span></div><div class="audio-controls"><button id="audioToggle" type="button" aria-pressed="false">Ton einschalten</button><label for="audioVolume">Lautstärke <output id="audioVolumeValue">30 %</output><input id="audioVolume" type="range" min="0" max="100" value="30"></label></div><p class="muted">Steigen: höhere und schnellere Pieptöne. Sinken: durchgehender, tiefer werdender Ton. Bei Datenverlust oder beim Verlassen der Seite verstummt der Ton. Für die Wiedergabe Bluefy geöffnet lassen.</p></section>
+    <section class="flight-stats" aria-label="Flugstatistik"><div><span>MAX. STEIGEN</span><strong id="maxClimb">–</strong><small>m/s</small></div><div><span>MAX. SINKEN</span><strong id="maxSink">–</strong><small>m/s</small></div><div><span>MAX. HÖHE</span><strong id="maxAltitude">–</strong><small>m</small></div><div><span>G-KRAFT</span><strong id="gForce">–</strong><small>g</small></div></section>
+    <section class="trend panel"><div class="section-title"><div><span class="eyebrow">DIE LETZTE MINUTE</span><h2>Steigen &amp; Sinken</h2></div><div class="legend"><span>Vario <b id="trendVario">–</b> m/s</span><span>Mittelwert <b id="trendAverage">–</b> m/s</span></div></div><canvas id="varioChart" aria-label="Steigrate und mittlere Steigrate der letzten 60 Sekunden"></canvas><div class="trend-footer"><span>−60 s</span><span>jetzt</span></div></section>
+    <section class="panel audio-player"><div class="section-title"><h2>Vario-Ton</h2><span id="audioStatus" role="status">Aus</span></div><div class="audio-controls"><button id="audioToggle" type="button" aria-pressed="false">Ton einschalten</button><label for="audioVolume">Lautstärke <output id="audioVolumeValue">75 %</output><input id="audioVolume" type="range" min="0" max="100" value="75"></label></div><p class="muted">Der Ton wird beim Verbinden automatisch aktiviert. Steigen: höhere und schnellere Pieptöne. Sinken: durchgehender, tiefer werdender Ton. Bei Datenverlust oder beim Verlassen der Seite verstummt der Ton. Für die Wiedergabe Bluefy geöffnet lassen.</p></section>
     <section id="settings" class="panel settings"><div class="section-title"><div><span class="eyebrow">DEIN FLUGGEFÜHL</span><h2>Vario abstimmen</h2></div><span id="settingsStatus" role="status">Gerät verbinden</span></div>
       <p class="muted">Filter, QNH und Audio-Profil werden auf dem Nicla berechnet und nach Gerätebestätigung dauerhaft gespeichert – auch über einen Neustart hinweg.</p>
       <fieldset id="deviceSettings" disabled><legend>Geräteeinstellungen</legend>
         <div class="profiles" role="group" aria-label="Filterprofile"><button type="button" data-command="5"><b>Ruhig</b><span>Mehr Dämpfung</span></button><button type="button" data-command="6"><b>Ausgewogen</b><span>Für den Einstieg</span></button><button type="button" data-command="7"><b>Direkt</b><span>Schnellere Reaktion</span></button></div>
         <form id="settingsForm"><div class="settings-grid">
           <label>QNH <span>Referenzdruck für die absolute Höhe</span><div><input id="qnh" type="number" min="800" max="1100" step="0.01" required> hPa</div></label>
+          <label class="altitude-calibration">Bekannte Höhe <span>QNH aus aktuellem Luftdruck und Platzhöhe bestimmen</span><div><input id="knownAltitude" type="number" min="-500" max="9000" step="1" value="0"> m <button id="setAltitude" type="button">QNH übernehmen</button></div></label>
           <label>Vario-Dämpfung <span>Größer = ruhiger; kleiner = schneller</span><div><input id="responseTau" type="number" min="0.1" max="2" step="0.01" required> s</div></label>
           <label>Mittelwert-Fenster <span>Steigen und Sinken über diese Dauer</span><div><input id="averageSeconds" type="number" min="2" max="30" step="1" required> s</div></label>
         </div><details class="advanced"><summary>Erweiterte Filtereinstellungen</summary><div class="settings-grid">
@@ -44,6 +45,6 @@
     <details id="sensors" class="panel sensors"><summary>Sensoren &amp; Verbindungsdiagnose</summary><div id="sensorGrid" class="sensor-grid"></div><div class="diagnostics"><span>Empfang: <b id="rate">0</b> Hz</span><span>Paketlücken: <b id="lost">0</b></span><span>Firmware-Protokoll: <b id="protocolVersion">–</b></span></div></details>
     <div class="utilities"><button id="export">CSV exportieren</button><button id="fullscreen">Vollbild</button></div>
     <p id="message" role="status">In Bluefy öffnen und mit deinem Nicla verbinden.</p>
-  </main><footer>CG VARIO <span>Nicla Sense ME · Messwerte bleiben auf deinem Gerät</span></footer>
-  <script type="module" src="app.js?v=9"></script>
+  </main><footer>CG-VARIO <span>Nicla Sense ME · Messwerte bleiben auf deinem Gerät</span></footer>
+  <script type="module" src="app.js?v=11"></script>
 </body></html>

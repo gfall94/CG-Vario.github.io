@@ -6,7 +6,7 @@ Automatisch:
 npm test
 g++ -std=c++17 -O2 -Wall -Wextra -Werror test/firmware.cpp -o /tmp/vario-test
 /tmp/vario-test
-arduino-cli compile --fqbn arduino:mbed_nicla:nicla_sense firmware/EZVario
+arduino-cli compile --fqbn arduino:mbed_nicla:nicla_sense firmware/CGVario
 ```
 
 Die C++-Tests führen denselben Filterheader wie der Nicla aus, keinen JS-Nachbau.
@@ -27,7 +27,7 @@ Hardware-Abnahme bleibt erforderlich:
 2. Ruhende Drehungen, anschließend vertikale Bewegungen mit bekanntem Vorzeichen.
    Der BHI-Quaternion und Host-Zeitversatz müssen physikalisch geprüft werden.
 3. Vergleich mit Referenzhöhe, QNH ändern: nur absolute Höhe verändert sich.
-4. BLE in Bluefy verbinden: 176 Byte vollständig; neue Einstellungen erst nach
+4. BLE in Bluefy verbinden: 140 Byte vollständig; neue Einstellungen erst nach
    bestätigtem Read/Notify sichtbar. Ungültige/fehlende Bestätigung testen.
    In nRF Connect auf iOS mindestens zwei Minuten verbunden und abonniert
    lassen; kein Disconnect-Grund `0x08`. Intervall und Supervision Timeout

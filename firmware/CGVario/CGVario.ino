@@ -17,6 +17,8 @@ ez::VarioTone varioTone;
 ez::SettingsStore settingsStore;
 uint16_t settingsRevision=0;
 float zeroHeight=NAN, maxClimb=NAN, maxSink=NAN, maxAltitude=NAN;
+float latestPressureHpa=NAN;
+uint32_t latestPressureAt=0;
 bool flying=false;
 uint32_t flightStart=0, flightDuration=0;
 void replySettings(uint16_t request=0,uint8_t result=0) {
@@ -40,6 +42,16 @@ void commands(uint32_t now) {
     case 5: case 6: case 7:
       candidate=ez::profile(b[3]-5,vario.settings.qnh);candidate.audio=vario.settings.audio;
       result=ez::persistSettings(vario,candidate,settingsStore);break;
+    case 8: {
+      const float referenceHeight=ez::readFloat(b+8);
+      ok=isfinite(referenceHeight)&&referenceHeight>=-500&&referenceHeight<=9000&&
+         isfinite(latestPressureHpa)&&latestPressureHpa>0&&now-latestPressureAt<=1500;
+      if(ok){
+        candidate.qnh=ez::qnhForAltitude(latestPressureHpa,referenceHeight);
+        result=ez::persistSettings(vario,candidate,settingsStore);
+      }
+      break;
+    }
     default: ok=false;
   }
   if(!ok)result=1;
@@ -48,7 +60,8 @@ void commands(uint32_t now) {
 }
 // Gravity, linear acceleration and rotation vector are fused virtual sensors
 // calculated on the BHI260AP. Both acceleration vectors are rotated into the
-// earth-fixed ENU frame with the fused quaternion before transmission.
+// earth-fixed ENU frame with the fused quaternion. Only total acceleration and
+// its magnitude are transmitted; fusion internals stay on the microcontroller.
 SensorXYZ gravity(SENSOR_ID_GRA), linear(SENSOR_ID_LACC), gyro(SENSOR_ID_GYRO), mag(SENSOR_ID_MAG);
 SensorQuaternion rotation(SENSOR_ID_RV);
 Sensor pressure(SENSOR_ID_BARO), temperature(SENSOR_ID_TEMP), humidity(SENSOR_ID_HUM), gas(SENSOR_ID_GAS);
@@ -90,8 +103,8 @@ void setup() {
   if (!(linearScale>0)) linearScale=NAN;
   if (!(gyroScale>0)) gyroScale=NAN;
   if (!(magScale>0)) magScale=NAN;
-  BLE.setLocalName("EZ-Vario");
-  BLE.setDeviceName("EZ-Vario Nicla");
+  BLE.setLocalName("CG-Vario");
+  BLE.setDeviceName("CG-Vario Nicla");
   BLE.setAdvertisedService(service);
   service.addCharacteristic(stream); service.addCharacteristic(control); BLE.addService(service);
   // The iPhone is the BLE central and chooses the link parameters. Do not send
@@ -109,13 +122,14 @@ void setup() {
 void loop() {
   BHY2.update(); BLE.poll();
   const uint32_t now=millis();
-  commands(now);
   for (int i=0;i<10;++i) {
     if (sensors[i]->dataAvailable()) {
       sensors[i]->clearDataAvailFlag(); updated[i]=now;
       seen |= 1u<<i; fresh |= 1u<<i;
     }
   }
+  if ((fresh&32) && recent(seen,5)) { latestPressureHpa=pressure.value(); latestPressureAt=now; }
+  commands(now);
   if ((int32_t)(now-nextSend)<0) return;
   const uint32_t ticks=1+(now-nextSend)/20;
   nextSend += ticks*20; sequence += ticks; // Expose missed deadlines, never burst old data.
@@ -127,48 +141,46 @@ void loop() {
   ez::Quat q{rotation.x(),rotation.y(),rotation.z(),rotation.w()};
   const float qn=q.x*q.x+q.y*q.y+q.z*q.z+q.w*q.w;
   if (!isfinite(qn) || qn<0.81f || qn>1.21f) valid &= ~(1u<<4);
-  if (recent(valid,4)) {
-    v[12]=q.x; v[13]=q.y; v[14]=q.z; v[15]=q.w;
-    v[23]=rotation.accuracy();
-  }
+  if (recent(valid,4)) v[ez::HEADING_ERROR]=rotation.accuracy();
   const bool gravityOk=recent(valid,0) && recent(valid,4) && aligned(0) && isfinite(gravityScale);
   const bool linearOk=recent(valid,1) && recent(valid,4) && aligned(1) && isfinite(linearScale);
   const ez::Vec gravityEarth=gravityOk ? ez::earth(scaled(gravity,gravityScale),q) : ez::Vec{NAN,NAN,NAN};
   const ez::Vec linearEarth=linearOk ? ez::earth(scaled(linear,linearScale),q) : ez::Vec{NAN,NAN,NAN};
-  if (linearOk) putVec(v+3,linearEarth); else valid &= ~2u;
+  if (!linearOk) valid &= ~2u;
   if (gravityOk && linearOk) {
     // Fused total acceleration: a = linear acceleration + gravity.
-    putVec(v,{linearEarth.x+gravityEarth.x,
-              linearEarth.y+gravityEarth.y,
-              linearEarth.z+gravityEarth.z});
+    const ez::Vec total{linearEarth.x+gravityEarth.x,
+                        linearEarth.y+gravityEarth.y,
+                        linearEarth.z+gravityEarth.z};
+    putVec(v+ez::ACC_E,total);
+    v[ez::G_FORCE]=sqrtf(total.x*total.x+total.y*total.y+total.z*total.z)/ez::G;
   } else valid &= ~1u;
-  if (recent(valid,2) && isfinite(gyroScale)) putVec(v+6,scaled(gyro,gyroScale));
-  else valid &= ~4u;
-  if (recent(valid,3) && isfinite(magScale)) putVec(v+9,scaled(mag,magScale));
+  if (!recent(valid,2) || !isfinite(gyroScale)) valid &= ~4u;
+  if (recent(valid,3) && isfinite(magScale)) putVec(v+ez::MAG_X,scaled(mag,magScale));
   else valid &= ~8u;
-  if (recent(valid,5)) { v[16]=pressure.value(); v[24]=ez::altitude(v[16]); }
-  if (recent(valid,6)) v[17]=temperature.value();
-  if (recent(valid,7)) v[18]=humidity.value();
-  if (recent(valid,8)) v[19]=gas.value();
+  if (recent(valid,5)) { v[ez::PRESSURE]=pressure.value(); v[ez::STANDARD_ALTITUDE]=ez::altitude(v[ez::PRESSURE]); }
+  if (recent(valid,6)) v[ez::TEMPERATURE]=temperature.value();
+  if (recent(valid,7)) v[ez::HUMIDITY]=humidity.value();
+  if (recent(valid,8)) v[ez::GAS]=gas.value();
   if (recent(valid,9)) {
-    v[20]=bsec.iaq(); v[21]=bsec.co2_eq(); v[22]=bsec.b_voc_eq(); v[25]=bsec.accuracy();
+    v[ez::IAQ]=bsec.iaq(); v[ez::ECO2]=bsec.co2_eq(); v[ez::BVOC]=bsec.b_voc_eq(); v[ez::BSEC_ACCURACY]=bsec.accuracy();
   }
   // Estimation runs even when no phone is connected. Fresh pressure is consumed
   // exactly once; a held IMU sample is used only for at most 80 ms.
-  vario.update(now,v[24],(fresh&32)&&recent(valid,5),v[5],linearOk && now-updated[1]<=80);
+  vario.update(now,v[ez::STANDARD_ALTITUDE],(fresh&32)&&recent(valid,5),linearEarth.z,linearOk && now-updated[1]<=80);
   uint16_t status=(vario.ready?1:0)|(vario.fused?2:0)|(flying?4:0);
   if(vario.ready) {
     if(!isfinite(zeroHeight))zeroHeight=vario.height;
-    v[26]=vario.speed;v[27]=vario.average;
+    v[ez::VARIO]=vario.speed;v[ez::AVERAGE]=vario.average;
     // QNH affects altitude only, never the estimator's velocity state.
     const double p=1013.25*pow(1-(double)vario.height/44330.0,1/0.19029495);
-    v[28]=ez::altitude((float)p,vario.settings.qnh);v[29]=vario.height-zeroHeight;
-    if(flying){maxClimb=fmaxf(maxClimb,v[26]);maxSink=fminf(maxSink,v[26]);maxAltitude=isfinite(maxAltitude)?fmaxf(maxAltitude,v[28]):v[28];}
+    v[ez::ALTITUDE]=ez::altitude((float)p,vario.settings.qnh);v[ez::RELATIVE_ALTITUDE]=vario.height-zeroHeight;
+    if(flying){maxClimb=fmaxf(maxClimb,v[ez::VARIO]);maxSink=fminf(maxSink,v[ez::VARIO]);maxAltitude=isfinite(maxAltitude)?fmaxf(maxAltitude,v[ez::ALTITUDE]):v[ez::ALTITUDE];}
   }
-  v[30]=maxClimb;v[31]=maxSink;v[32]=maxAltitude;
-  v[33]=(flying?now-flightStart:flightDuration)*.001f;v[34]=vario.bias;v[35]=vario.sigma;
+  v[ez::MAX_CLIMB]=maxClimb;v[ez::MAX_SINK]=maxSink;v[ez::MAX_ALTITUDE]=maxAltitude;
+  v[ez::FLIGHT_SECONDS]=(flying?now-flightStart:flightDuration)*.001f;v[ez::ACCEL_BIAS]=vario.bias;v[ez::SPEED_SIGMA]=vario.sigma;
   varioTone.update(vario.speed,vario.ready,vario.settings.audio);
-  v[36]=varioTone.hz;v[37]=varioTone.period;v[38]=varioTone.on;
+  v[ez::TONE_HZ]=varioTone.hz;v[ez::TONE_PERIOD]=varioTone.period;v[ez::TONE_ON]=varioTone.on;
   uint8_t packet[ez::PACKET_SIZE];
   ez::encode(packet,sequence,now,present,valid,fresh,v,status);
   fresh=0;
