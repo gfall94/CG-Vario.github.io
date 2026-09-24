@@ -34,8 +34,10 @@ Hardware-Abnahme bleibt erforderlich:
 6. Druck-/IMU-Ausfall und Wiederanlauf prüfen; bei fehlender Telemetrie muss
    die Anzeige nach 1,5 s Striche statt scheinbar aktueller Werte zeigen.
 
-Kein eindeutig als Nicla erkanntes USB-Gerät war bei der Umsetzung verfügbar.
-Ein Firmware-Upload und Live-BLE-/Flugtest wurden deshalb nicht durchgeführt.
+Am 24.09.2026 wurde der Nicla Sense ME an COM5 erkannt und die neue Firmware
+erfolgreich aufgespielt (Arduino CLI/OpenOCD, Exit-Code 0). Der vollständige
+Build benötigt 338032 Byte Flash und 42048 Byte statischen RAM.
+Live-BLE-, Power-Cycle- und Flugtest stehen weiterhin aus.
 
 Ergänzungen v9: Tests reproduzieren das ArduinoBLE-Schreibecho (Preset-Nutzdaten
 null), ignorieren es und warten auf eine echte ES-Antwort. Flash-Speicherfehler
