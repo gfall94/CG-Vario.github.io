@@ -29,6 +29,9 @@ Hardware-Abnahme bleibt erforderlich:
 3. Vergleich mit Referenzhöhe, QNH ändern: nur absolute Höhe verändert sich.
 4. BLE in Bluefy verbinden: 176 Byte vollständig; neue Einstellungen erst nach
    bestätigtem Read/Notify sichtbar. Ungültige/fehlende Bestätigung testen.
+   In nRF Connect auf iOS mindestens zwei Minuten verbunden und abonniert
+   lassen; kein Disconnect-Grund `0x08`. Erwartete Parameter: 15–30 ms,
+   Supervision Timeout 6 s.
 5. Flug starten, Bluetooth trennen und wieder verbinden: Flugzeit/Statistik
    laufen auf dem Nicla weiter. Neustart erhält Filter/QNH/Audio, setzt den Flug zurück.
 6. Druck-/IMU-Ausfall und Wiederanlauf prüfen; bei fehlender Telemetrie muss

@@ -81,3 +81,8 @@ BLE wird als Erstes initialisiert, weil Cordio auf dem Nicla einen
 zusammenhängenden 13.000-Byte-Puffer benötigt. Speicher- oder Sensordienste vor
 `BLE.begin()` können den kleinen Heap so fragmentieren, dass der Start mit
 `_stack_buffer != NULL` abbricht.
+
+Für iPhone/iPad fordert die Firmware ein Verbindungsintervall von 15–30 ms und
+6 s Supervision Timeout an. Die Werte erfüllen Apples BLE-Parameterregeln; die
+frühere Anforderung 7,5–15 ms konnte von iOS abgelehnt werden und anschließend
+mit HCI-Grund `0x08` (Connection Timeout) abbrechen.

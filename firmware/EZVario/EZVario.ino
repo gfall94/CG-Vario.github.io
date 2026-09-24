@@ -91,7 +91,10 @@ void setup() {
   BLE.setDeviceName("EZ-Vario Nicla");
   BLE.setAdvertisedService(service);
   service.addCharacteristic(stream); service.addCharacteristic(control); BLE.addService(service);
-  BLE.setConnectionInterval(6,12); // Request 7.5–15 ms; phone has final say.
+  // Apple-compatible request: units are 1.25 ms and 10 ms respectively.
+  // 7.5–15 ms was outside Apple's rules and caused iOS supervision timeouts.
+  BLE.setConnectionInterval(12,24); // 15–30 ms; still supports the 50 Hz stream.
+  BLE.setSupervisionTimeout(600);   // 6 s, valid for iOS and the interval above.
   uint8_t initial[ez::PACKET_SIZE];
   float emptyValues[ez::VALUE_COUNT]; for (float& value : emptyValues) value=NAN;
   ez::encode(initial,0,millis(),present,0,0,emptyValues);
