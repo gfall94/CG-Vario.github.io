@@ -1,5 +1,5 @@
-import {SERVICE_UUID,CHARACTERISTIC_UUID,CONTROL_UUID,fields,settingFields,AUDIO_SPEEDS,decodeTelemetry,decodeSettings,isCommandEcho,validateSettings,encodeCommand,sequenceGap,samplesInWindow} from './protocol.js?v=11';
-import {VarioAudio} from './audio.js?v=11';
+import {SERVICE_UUID,CHARACTERISTIC_UUID,CONTROL_UUID,fields,settingFields,AUDIO_SPEEDS,decodeTelemetry,decodeSettings,isCommandEcho,validateSettings,encodeCommand,sequenceGap,samplesInWindow} from './protocol.js?v=12';
+import {VarioAudio} from './audio.js?v=12';
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const $=id=>document.getElementById(id);
@@ -112,11 +112,24 @@ function drawTrend(now){
   for(const v of [-range,0,range]){c.strokeStyle=v===0?'#647e8c':'#283d4a';c.lineWidth=1;c.beginPath();c.moveTo(40,y(v));c.lineTo(w,y(v));c.stroke();c.fillStyle='#93a9b7';c.fillText(number(v,1,true),0,y(v)+4);}
   for(const [key,color] of [['vario','#3edbc0'],['average','#ff9866']]){c.strokeStyle=color;c.lineWidth=2;c.beginPath();let last=null;for(const s of visible){if(!(s.status&1)||!Number.isFinite(s[key])){last=null;continue;}if(!last||s.received-last>200)c.moveTo(x(s.received),y(s[key]));else c.lineTo(x(s.received),y(s[key]));last=s.received;}c.stroke();}
 }
+function drawGTrend(now){
+  const canvas=$('gForceChart'),rect=canvas.getBoundingClientRect(),dpr=Math.min(globalThis.devicePixelRatio||1,2);
+  const w=Math.max(1,rect.width),h=Math.max(1,rect.height);
+  if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);}
+  const c=canvas.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);
+  const visible=samplesInWindow(samples,now),maximum=Math.max(1.5,...visible.map(s=>Number.isFinite(s.gForce)?s.gForce:0));
+  const range=Math.ceil(maximum*2)/2,y=v=>h-12-v/range*(h-24),x=t=>40+(t-(now-60000))/60000*(w-48);
+  c.font='11px system-ui';
+  for(const v of [0,1,range]){c.strokeStyle=v===1?'#647e8c':'#283d4a';c.lineWidth=1;c.beginPath();c.moveTo(40,y(v));c.lineTo(w,y(v));c.stroke();c.fillStyle='#93a9b7';c.fillText(number(v,1),4,y(v)+4);}
+  c.strokeStyle='#b9ef79';c.lineWidth=2;c.beginPath();let last=null;
+  for(const s of visible){if(!Number.isFinite(s.gForce)){last=null;continue;}if(!last||s.received-last>200)c.moveTo(x(s.received),y(s.gForce));else c.lineTo(x(s.received),y(s.gForce));last=s.received;}c.stroke();
+}
 function render(){
   const now=performance.now(),fresh=device?.gatt?.connected&&latest&&now-latest.received<1500;
   const usable=fresh&&latest.version>=2&&(latest.status&1),flying=fresh&&Boolean(latest.status&4);
   for(const key of ['vario','average','altitude','relativeAltitude','maxClimb','maxSink','maxAltitude'])$(key).textContent=number(usable?latest[key]:NaN,key.includes('Altitude')||key==='altitude'?0:1,['vario','average','maxClimb','maxSink'].includes(key));
   $('gForce').textContent=number(fresh?latest.gForce:NaN,2);
+  $('trendGForce').textContent=number(fresh?latest.gForce:NaN,2);
   $('trendVario').textContent=number(usable?latest.vario:NaN,1,true);
   $('trendAverage').textContent=number(usable?latest.average:NaN,1,true);
   const seconds=fresh&&Number.isFinite(latest.flightSeconds)?Math.floor(latest.flightSeconds):0;
@@ -129,7 +142,7 @@ function render(){
   for(const [key,,unit] of sensorDefs)$(key).textContent=`${number(fresh?latest[key]:NaN,key.startsWith('quat')?3:1)} ${unit}`;
   $('rate').textContent=fresh?String(Math.round(times.filter(t=>now-t<=2000).length/2)):'0';$('lost').textContent=lost;$('protocolVersion').textContent=latest?.version??'–';
   if(device?.gatt?.connected&&connectedAt&&((latest&&!fresh)||(!latest&&now-connectedAt>3000))){status('Daten fehlen','error');$('filterMode').textContent='Keine aktuellen Messwerte';}
-  drawTrend(now);
+  drawTrend(now);drawGTrend(now);
 }
 async function exportCsv(){
   if(!samples.length){message('Noch keine Daten zum Exportieren.');return;}
