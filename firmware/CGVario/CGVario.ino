@@ -69,13 +69,35 @@ SensorBSEC bsec(SENSOR_ID_BSEC);
 SensorClass* sensors[] = {&gravity,&linear,&gyro,&mag,&rotation,&pressure,&temperature,&humidity,&gas,&bsec};
 const float rates[] = {50,50,50,50,50,25,1,1,1,1};
 const uint32_t staleMs[] = {200,200,200,500,200,500,5000,5000,15000,15000};
-uint32_t updated[10]={}, sequence=0, nextSend=0;
+uint32_t updated[10]={}, sequence=0, nextSend=0, nextScaleRead=0;
 uint16_t present=0, seen=0, fresh=0;
 float gravityScale=NAN, linearScale=NAN, gyroScale=NAN, magScale=NAN;
 ez::Vec scaled(SensorXYZ& s, float k) { return {s.x()*k,s.y()*k,s.z()*k}; }
 void putVec(float* v, ez::Vec a) { v[0]=a.x; v[1]=a.y; v[2]=a.z; }
 bool recent(uint16_t valid, int i) { return valid & (1u<<i); }
-bool aligned(int i) { return abs((int32_t)(updated[i]-updated[4])) <= 25; }
+// Virtual sensors arrive as separate FIFO records. A 60 ms window covers their
+// scheduling skew at 50 Hz without accepting an old orientation indefinitely.
+bool aligned(int i) { return abs((int32_t)(updated[i]-updated[4])) <= 60; }
+void refreshScales(uint32_t now) {
+  if ((int32_t)(now-nextScaleRead)<0) return;
+  nextScaleRead=now+1000;
+  if ((present&1) && !isfinite(gravityScale)) {
+    const uint16_t range=gravity.getConfiguration().range;
+    if (range==2 || range==4 || range==8 || range==16) gravityScale=range*ez::G/32768.f;
+  }
+  if ((present&2) && !isfinite(linearScale)) {
+    const uint16_t range=linear.getConfiguration().range;
+    if (range==2 || range==4 || range==8 || range==16) linearScale=range*ez::G/32768.f;
+  }
+  if ((present&4) && !isfinite(gyroScale)) {
+    const uint16_t range=gyro.getConfiguration().range;
+    if (range>=125 && range<=4000) gyroScale=range/32768.f;
+  }
+  if ((present&8) && !isfinite(magScale)) {
+    const uint16_t range=mag.getConfiguration().range;
+    if (range>0) magScale=range/32768.f;
+  }
+}
 
 void setup() {
   Serial.begin(115200); // No wait for USB: works from battery.
@@ -94,15 +116,8 @@ void setup() {
     else { Serial.print("Unavailable sensor ID: "); Serial.println(sensors[i]->id()); }
   }
   pressure.setFactor(1.f/128.f); // Exact BHY2 hPa scale (library rounds to 0.0078).
-  // Use the actual configured full scale: raw XYZ accessors return signed counts.
-  if (present&1) gravityScale=gravity.getConfiguration().range * ez::G / 32768.f;
-  if (present&2) linearScale=linear.getConfiguration().range * ez::G / 32768.f;
-  if (present&4) gyroScale=gyro.getConfiguration().range / 32768.f;
-  if (present&8) magScale=mag.getConfiguration().range / 32768.f;
-  if (!(gravityScale>0)) gravityScale=NAN;
-  if (!(linearScale>0)) linearScale=NAN;
-  if (!(gyroScale>0)) gyroScale=NAN;
-  if (!(magScale>0)) magScale=NAN;
+  // BHI260 applies virtual-sensor configuration asynchronously. Its range is
+  // therefore read later in loop(); an immediate read often returns zero.
   BLE.setLocalName("CG-Vario");
   BLE.setDeviceName("CG-Vario Nicla");
   BLE.setAdvertisedService(service);
@@ -117,6 +132,7 @@ void setup() {
   replySettings();
   BLE.advertise();
   nextSend=millis()+20;
+  nextScaleRead=millis()+1000;
 }
 
 void loop() {
@@ -128,6 +144,7 @@ void loop() {
       seen |= 1u<<i; fresh |= 1u<<i;
     }
   }
+  refreshScales(now);
   if ((fresh&32) && recent(seen,5)) { latestPressureHpa=pressure.value(); latestPressureAt=now; }
   commands(now);
   if ((int32_t)(now-nextSend)<0) return;
