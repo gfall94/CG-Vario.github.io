@@ -2,15 +2,17 @@
 #include <math.h>
 #include <stdint.h>
 #include <string.h>
+#include "AudioProfile.h"
 
 namespace ez {
 // Independent implementation of a height / speed / acceleration-bias estimator.
 // See docs/VARIO.md for the reference-method comparison and units.
 struct Settings {
+  AudioProfile audio;
   float qnh=1013.25f, baroSigma=1.5f, accelTau=.12f;
   float responseTau=.55f, averageSeconds=10.f, processNoise=.08f;
   bool valid() const {
-    return isfinite(qnh)&&qnh>=800&&qnh<=1100 && isfinite(baroSigma)&&baroSigma>=.3f&&baroSigma<=3
+    return audio.valid() && isfinite(qnh)&&qnh>=800&&qnh<=1100 && isfinite(baroSigma)&&baroSigma>=.3f&&baroSigma<=3
       && isfinite(accelTau)&&accelTau>=.04f&&accelTau<=.4f && isfinite(responseTau)&&responseTau>=.1f&&responseTau<=2
       && isfinite(averageSeconds)&&averageSeconds>=2&&averageSeconds<=30 && isfinite(processNoise)&&processNoise>=.02f&&processNoise<=1;
   }

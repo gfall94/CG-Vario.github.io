@@ -1,5 +1,6 @@
 #include "../firmware/EZVario/Vario.h"
 #include "../firmware/EZVario/Control.h"
+#include "../firmware/EZVario/VarioTone.h"
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
@@ -46,9 +47,22 @@ int main(){
   const float r=sqrtf(.5f);auto a=ez::earth({0,ez::G,0},{r,0,0,r});assert(fabsf(a.z+ez::G)<.001f);
   float values[ez::VALUE_COUNT];for(unsigned i=0;i<ez::VALUE_COUNT;i++)values[i]=i+.25f;
   uint8_t packet[ez::PACKET_SIZE];ez::encode(packet,42,500,1023,1023,32,values,3);
-  assert(sizeof(packet)==164&&packet[2]==2&&packet[3]==164&&ez::read16(packet+18)==3);
+  assert(sizeof(packet)==176&&packet[2]==3&&packet[3]==176&&ez::read16(packet+18)==3);
   assert(ez::readFloat(packet+124)==26.25f);
   uint8_t config[ez::CONTROL_SIZE];ez::Settings s;ez::encodeSettings(config,s,12,3,0);
   assert(ez::readSettings(config).valid());assert(ez::read16(config+4)==12);
+  assert(config[1]=='S'&&config[2]==2);assert(ez::readSettings(config).audio.points[8].pitch==2400);
+  struct MemoryStore{bool fail=false;ez::Settings saved;bool save(const ez::Settings& s){if(fail)return false;saved=s;return true;}} store;
+  ez::Vario persisted;auto changed=persisted.settings;changed.qnh=1020;changed.audio.points[8].pitch=2450;
+  assert(ez::persistSettings(persisted,changed,store)==0);
+  ez::Vario restarted;assert(restarted.configure(store.saved));assert(restarted.settings.qnh==1020&&restarted.settings.audio.points[8].pitch==2450);
+  store.fail=true;changed.qnh=1030;assert(ez::persistSettings(persisted,changed,store)==3);assert(persisted.settings.qnh==1020);
+  for(unsigned p=0;p<3;p++){auto preset=ez::profile(p,1020);assert(preset.valid()&&preset.qnh==1020&&preset.baroSigma>0);}
+  ez::VarioTone tone;ez::AudioProfile ap;tone.update(.5f,true,ap);float hz=tone.hz,period=tone.period;
+  tone.update(5,true,ap);assert(tone.hz>hz&&tone.period<period&&tone.on>0);
+  tone.update(-2,true,ap);hz=tone.hz;assert(tone.period==0&&hz>0);
+  tone.update(-5,true,ap);assert(tone.hz<hz&&tone.period==0);
+  tone.update(0,true,ap);assert(tone.hz==0);tone.update(2,false,ap);assert(tone.hz==0);
+  ap.points[8].pitch=80;assert(!ap.valid());
   puts("Firmware estimator and protocol tests passed.");
 }

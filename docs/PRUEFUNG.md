@@ -27,12 +27,27 @@ Hardware-Abnahme bleibt erforderlich:
 2. Ruhende Drehungen, anschließend vertikale Bewegungen mit bekanntem Vorzeichen.
    Der BHI-Quaternion und Host-Zeitversatz müssen physikalisch geprüft werden.
 3. Vergleich mit Referenzhöhe, QNH ändern: nur absolute Höhe verändert sich.
-4. BLE in Bluefy verbinden: 164 Byte vollständig; neue Einstellungen erst nach
+4. BLE in Bluefy verbinden: 176 Byte vollständig; neue Einstellungen erst nach
    bestätigtem Read/Notify sichtbar. Ungültige/fehlende Bestätigung testen.
 5. Flug starten, Bluetooth trennen und wieder verbinden: Flugzeit/Statistik
-   laufen auf dem Nicla weiter. Neustart setzt Einstellungen/Flug zurück.
+   laufen auf dem Nicla weiter. Neustart erhält Filter/QNH/Audio, setzt den Flug zurück.
 6. Druck-/IMU-Ausfall und Wiederanlauf prüfen; bei fehlender Telemetrie muss
    die Anzeige nach 1,5 s Striche statt scheinbar aktueller Werte zeigen.
 
 Kein eindeutig als Nicla erkanntes USB-Gerät war bei der Umsetzung verfügbar.
 Ein Firmware-Upload und Live-BLE-/Flugtest wurden deshalb nicht durchgeführt.
+
+Ergänzungen v9: Tests reproduzieren das ArduinoBLE-Schreibecho (Preset-Nutzdaten
+null), ignorieren es und warten auf eine echte ES-Antwort. Flash-Speicherfehler
+dürfen weder aktive Werte ersetzen noch als erfolgreich gemeldet werden.
+Die Transaktion wird mit einem fehlschlagenden Speicher-Double und simuliertem
+Neustart getestet. TDBStore/physischer Flash benötigt zusätzlich einen echten
+Power-Cycle-Test: QNH, Preset und Audio-Profil ändern, Bestätigung abwarten,
+Strom aus/ein und Gerätestand erneut lesen.
+
+Audio: Firmwaretests prüfen Tonhöhenrichtung, kürzere Steigperioden, Dauerton
+beim Sinken, Ruhebereich, Invalidität und Profilgrenzen. Playback-Tests prüfen
+Opt-in, kurze Audio-Clock-Leases, Unterbrechung und lange konfigurierbare Töne.
+Auf dem Handy Lautstärke, Bluefy-Audiofreigabe, Sperrbildschirm, BLE-Abbruch und
+beide Tonarten tatsächlich anhören. Ohne diese Hardwaretests keine Aussage zur
+realen Audioqualität oder Flash-Persistenz auf dem angeschlossenen Board.

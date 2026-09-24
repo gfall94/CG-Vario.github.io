@@ -2,8 +2,8 @@
 <html lang="de">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#101c20"><meta name="description" content="CG Vario – dein Cockpit für den Arduino Nicla Sense ME">
-  <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="stylesheet" href="styles.css?v=7">
+  <meta name="theme-color" content="#08121b"><meta name="description" content="CG Vario – dein Cockpit für den Arduino Nicla Sense ME">
+  <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="stylesheet" href="styles.css?v=9">
   <title>CG Vario · Flugcockpit</title>
 </head>
 <body>
@@ -20,8 +20,9 @@
     </section>
     <section class="flight-stats" aria-label="Flugstatistik"><div><span>MAX. STEIGEN</span><strong id="maxClimb">–</strong><small>m/s</small></div><div><span>MAX. SINKEN</span><strong id="maxSink">–</strong><small>m/s</small></div><div><span>MAX. HÖHE</span><strong id="maxAltitude">–</strong><small>m</small></div></section>
     <section class="trend panel"><div class="section-title"><div><span class="eyebrow">DIE LETZTE MINUTE</span><h2>Steigen &amp; Sinken</h2></div><div class="legend"><span>Vario</span><span>Mittelwert</span></div></div><canvas id="varioChart" aria-label="Steigrate und mittlere Steigrate der letzten 60 Sekunden"></canvas><div class="trend-footer"><span>−60 s</span><span>jetzt</span></div></section>
+    <section class="panel audio-player"><div class="section-title"><h2>Vario-Ton</h2><span id="audioStatus" role="status">Aus</span></div><div class="audio-controls"><button id="audioToggle" type="button" aria-pressed="false">Ton einschalten</button><label for="audioVolume">Lautstärke <output id="audioVolumeValue">30 %</output><input id="audioVolume" type="range" min="0" max="100" value="30"></label></div><p class="muted">Steigen: höhere und schnellere Pieptöne. Sinken: durchgehender, tiefer werdender Ton. Bei Datenverlust oder beim Verlassen der Seite verstummt der Ton. Für die Wiedergabe Bluefy geöffnet lassen.</p></section>
     <section id="settings" class="panel settings"><div class="section-title"><div><span class="eyebrow">DEIN FLUGGEFÜHL</span><h2>Vario abstimmen</h2></div><span id="settingsStatus" role="status">Gerät verbinden</span></div>
-      <p class="muted">Alle Messwerte werden auf dem Nicla berechnet. Änderungen gelten nach Gerätebestätigung und bleiben bis zum Neustart des Nicla erhalten.</p>
+      <p class="muted">Filter, QNH und Audio-Profil werden auf dem Nicla berechnet und nach Gerätebestätigung dauerhaft gespeichert – auch über einen Neustart hinweg.</p>
       <fieldset id="deviceSettings" disabled><legend>Geräteeinstellungen</legend>
         <div class="profiles" role="group" aria-label="Filterprofile"><button type="button" data-command="5"><b>Ruhig</b><span>Mehr Dämpfung</span></button><button type="button" data-command="6"><b>Ausgewogen</b><span>Für den Einstieg</span></button><button type="button" data-command="7"><b>Direkt</b><span>Schnellere Reaktion</span></button></div>
         <form id="settingsForm"><div class="settings-grid">
@@ -32,12 +33,17 @@
           <label>Barometer-Rauschen <span>Größer = weniger Einfluss einzelner Druckwerte</span><div><input id="baroSigma" type="number" min="0.3" max="3" step="0.1" required> m σ</div></label>
           <label>Beschleunigung glätten <span>Dämpft Vibrationen vor der Fusion</span><div><input id="accelTau" type="number" min="0.04" max="0.4" step="0.01" required> s</div></label>
           <label>Prozessrauschen <span>Größer = stärkere Barometer-Korrektur</span><div><input id="processNoise" type="number" min="0.02" max="1" step="0.01" required> m²/s³</div></label>
-        </div></details><div class="settings-actions"><button class="primary" type="submit">An Nicla senden</button><button id="resetSettings" type="button">Standard wiederherstellen</button></div></form>
+        </div></details>
+        <section class="audio-editor"><h3>Audio-Profil</h3><p class="muted">Stützpunkte bearbeiten und mit „An Nicla senden“ speichern. Dazwischen interpoliert der Nicla. Höhere Steigrate: höhere Tonhöhe und kürzere Tonfolge. Beim Sinken gelten immer Dauertöne.</p>
+          <div class="settings-grid"><label>Steigton ab<div><input id="climbThreshold" type="number" min="0.05" max="2" step="0.01" required> m/s</div></label><label>Sinkton unter<div><input id="sinkThreshold" type="number" min="-5" max="-0.2" step="0.1" required> m/s</div></label></div>
+          <div class="audio-legend"><span>Tonhöhe · Hz</span><span>Tonlänge · ms</span><span>Pause · ms</span></div><svg id="audioGraph" viewBox="0 0 900 280" role="img" aria-label="Audio-Profil: Tonhöhe, Tonlänge und Pause über der Steigrate"></svg>
+          <div class="audio-table-wrap"><table class="audio-table"><thead><tr><th>Steigrate</th><th>Tonhöhe (Hz)</th><th>Tonlänge (ms)</th><th>Pause (ms)</th><th>Probe</th></tr></thead><tbody id="audioRows"></tbody></table></div><p class="muted" id="audioDraftStatus">Das Diagramm zeigt deinen Entwurf. Erst „An Nicla senden“ ändert das aktive Profil.</p>
+        </section><div class="settings-actions"><button class="primary" type="submit">An Nicla senden</button><button id="resetSettings" type="button">Standard wiederherstellen</button></div></form>
       </fieldset>
     </section>
     <details id="sensors" class="panel sensors"><summary>Sensoren &amp; Verbindungsdiagnose</summary><div id="sensorGrid" class="sensor-grid"></div><div class="diagnostics"><span>Empfang: <b id="rate">0</b> Hz</span><span>Paketlücken: <b id="lost">0</b></span><span>Firmware-Protokoll: <b id="protocolVersion">–</b></span></div></details>
     <div class="utilities"><button id="export">CSV exportieren</button><button id="fullscreen">Vollbild</button></div>
     <p id="message" role="status">In Bluefy öffnen und mit deinem Nicla verbinden.</p>
   </main><footer>CG VARIO <span>Nicla Sense ME · Messwerte bleiben auf deinem Gerät</span></footer>
-  <script type="module" src="app.js?v=7"></script>
+  <script type="module" src="app.js?v=9"></script>
 </body></html>

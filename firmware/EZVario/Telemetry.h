@@ -4,8 +4,8 @@
 #include <math.h>
 
 namespace ez {
-constexpr uint8_t VERSION = 2;
-constexpr size_t VALUE_COUNT = 36;
+constexpr uint8_t VERSION = 3;
+constexpr size_t VALUE_COUNT = 39;
 constexpr size_t PACKET_SIZE = 20+4*VALUE_COUNT;
 constexpr float G = 9.80665f;
 struct Vec { float x, y, z; };

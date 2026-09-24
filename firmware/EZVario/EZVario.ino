@@ -2,6 +2,8 @@
 #include <ArduinoBLE.h>
 #include "Telemetry.h"
 #include "Control.h"
+#include "VarioTone.h"
+#include "SettingsStore.h"
 
 // One compact characteristic. Web Bluetooth/Bluefy starts the stream by
 // subscribing, so no proprietary start command or MTU write is required.
@@ -11,6 +13,8 @@ BLECharacteristic stream("a6e90002-7a25-4b48-9c6d-4f5b108a0001",
 BLECharacteristic control("a6e90003-7a25-4b48-9c6d-4f5b108a0001",
                           BLERead | BLEWrite | BLENotify, ez::CONTROL_SIZE, true);
 ez::Vario vario;
+ez::VarioTone varioTone;
+ez::SettingsStore settingsStore;
 uint16_t settingsRevision=0;
 float zeroHeight=NAN, maxClimb=NAN, maxSink=NAN, maxAltitude=NAN;
 bool flying=false;
@@ -22,20 +26,25 @@ void commands(uint32_t now) {
   if(!control.written())return;
   uint8_t b[ez::CONTROL_SIZE];
   const int n=control.readValue(b,sizeof(b));
-  if(n!=ez::CONTROL_SIZE || b[0]!='E'||b[1]!='C'||b[2]!=1){replySettings(0,1);return;}
+  if(n!=ez::CONTROL_SIZE || b[0]!='E'||b[1]!='C'||b[2]!=2){replySettings(0,1);return;}
   const uint16_t request=ez::read16(b+4);
   bool ok=true;
+  uint8_t result=0;
+  ez::Settings candidate=vario.settings;
   switch(b[3]) {
-    case 0: ok=vario.configure(ez::readSettings(b));break;
+    case 0: result=ez::persistSettings(vario,ez::readSettings(b),settingsStore);break;
     case 1: ok=vario.ready;if(ok)zeroHeight=vario.height;break;
     case 2: ok=vario.ready&&!flying;if(ok){flying=true;flightStart=now;flightDuration=0;zeroHeight=vario.height;maxClimb=maxSink=0;maxAltitude=NAN;}break;
     case 3: if(flying){flightDuration=now-flightStart;flying=false;}break;
-    case 4: vario.configure(ez::Settings{});break;
-    case 5: case 6: case 7: vario.configure(ez::profile(b[3]-5,vario.settings.qnh));break;
+    case 4: result=ez::persistSettings(vario,ez::Settings{},settingsStore);break;
+    case 5: case 6: case 7:
+      candidate=ez::profile(b[3]-5,vario.settings.qnh);candidate.audio=vario.settings.audio;
+      result=ez::persistSettings(vario,candidate,settingsStore);break;
     default: ok=false;
   }
-  if(ok)settingsRevision++;
-  replySettings(request,ok?0:1);
+  if(!ok)result=1;
+  if(result==0)settingsRevision++;
+  replySettings(request,result);
 }
 // Gravity, linear acceleration and rotation vector are fused virtual sensors
 // calculated on the BHI260AP. Both acceleration vectors are rotated into the
@@ -57,6 +66,7 @@ bool aligned(int i) { return abs((int32_t)(updated[i]-updated[4])) <= 25; }
 
 void setup() {
   Serial.begin(115200); // No wait for USB: works from battery.
+  if(!settingsStore.begin(vario.settings))Serial.println("Settings storage unavailable; changes will be rejected");
   if (!BHY2.begin(NICLA_STANDALONE)) {
     Serial.println("BHY2 initialization failed"); while (true) delay(1000);
   }
@@ -150,6 +160,8 @@ void loop() {
   }
   v[30]=maxClimb;v[31]=maxSink;v[32]=maxAltitude;
   v[33]=(flying?now-flightStart:flightDuration)*.001f;v[34]=vario.bias;v[35]=vario.sigma;
+  varioTone.update(vario.speed,vario.ready,vario.settings.audio);
+  v[36]=varioTone.hz;v[37]=varioTone.period;v[38]=varioTone.on;
   uint8_t packet[ez::PACKET_SIZE];
   ez::encode(packet,sequence,now,present,valid,fresh,v,status);
   fresh=0;

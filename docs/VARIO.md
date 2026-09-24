@@ -71,11 +71,30 @@ Prozessrauschen 0,02–1 m²/s³. Die Firmware prüft alle Werte inklusive NaN/I
 atomar vor der Übernahme. Änderungen setzen den Filterzustand nicht zurück.
 Standard wiederherstellen setzt auch QNH auf 1013,25 hPa.
 
-Einstellungen liegen im RAM des Nicla und überleben BLE-Trennungen, aber keinen
-Stromverlust/Neustart. Der Browser liest beim Verbinden den Gerätestand und
+Filter-, QNH- und Audioeinstellungen liegen dauerhaft im internen Flash des Nicla
+und überleben Stromverlust/Neustart. Der Browser liest beim Verbinden den Gerätestand und
 überschreibt ihn nicht aus lokalem Browser-Speicher. Befehle benötigen passende
 Request-ID und positive Gerätebestätigung. Kein automatisches Wiederholen bei
 Timeout, insbesondere nicht bei Flugstart oder Nullpunkt.
+
+`SettingsStore.h` verwendet Mbed TDBStore auf den letzten zwei internen
+4-KiB-Flashseiten (0x7e000..0x7ffff). Externer Flash und Sensorhub-Firmware
+werden nicht verändert. Vor der Initialisierung wird der tatsächliche
+Flash-Endpunkt des Programms geprüft; bei Überlappung wird Speicherung
+verweigert. TDBStore nutzt CRC, append-only Records und zwei Bänke. Identische
+Einstellungen werden nicht erneut geschrieben. Erst nach erfolgreichem Set
+und Readback wird der neue RAM-Zustand übernommen und bestätigt. Ein Fehler
+liefert Ergebnis 3; vorherige aktive Einstellungen bleiben erhalten. Ein
+Firmware-Upload mit vollständigem Flash-Erase kann die Einstellungen löschen.
+Flugzeit, Flugstatistik und relativer Nullpunkt sind weiterhin Sitzungsdaten.
+
+Das Audio-Profil enthält neun feste Steigratenpunkte (-10, -5, -2, 0, 0,5, 1,
+2, 5, 10 m/s), Tonhöhe 80–2500 Hz, positive Tonlänge 40–1000 ms und Pause
+40–1500 ms. Der Nicla interpoliert linear, verwendet eine kleine Hysterese an
+den Aktivierungsschwellen und sendet Tonhöhe/Periodendauer/Einschaltdauer.
+Sinken bleibt unabhängig von den Pulsfeldern ein Dauerton. Das Profil verlangt
+monoton steigende Tonhöhen und bei Steigen nicht zunehmende Periodendauer.
+Filter-Presets erhalten das individuelle Audio-Profil und QNH.
 
 Flugstart erfolgt bewusst manuell auf dem Gerät per BLE-Befehl, setzt relative
 Höhe und Flugstatistik zurück. Flugende hält Zeit und Extremwerte fest. Bei

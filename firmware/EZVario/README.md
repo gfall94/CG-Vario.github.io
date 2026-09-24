@@ -36,8 +36,8 @@ prüfen; die Bibliothek enthält ein `BHYFirmwareUpdate`-Beispiel.
 
 Sensorfusion, Variofilter, Höhen und Flugstatistik laufen kontinuierlich auf
 dem Nicla, auch ohne BLE-Verbindung. Die Telemetrie wird erst bei Subscription
-übertragen. Ein Paket enthält 164 Byte (Protokoll 2).
-Mindestens ATT-MTU 167 ist erforderlich. Die gewünschte 50-Hz-Rate ist ein
+übertragen. Ein Paket enthält 176 Byte (Protokoll 3, einschließlich Audio).
+Mindestens ATT-MTU 179 ist erforderlich. Die gewünschte 50-Hz-Rate ist ein
 Zielwert; Empfangsrate und Sequenzlücken sind im Web-Dashboard sichtbar. Weitere
 Details stehen in `Software/PROTOKOLL.md`.
 
@@ -50,7 +50,7 @@ Details stehen in `Software/PROTOKOLL.md`.
    von Metall/Magneten fernhalten und die geschätzte Richtungsunsicherheit beachten.
 3. Druck mit Referenz vergleichen; QNH oder bekannten Referenzdruck einstellen.
    Bei Höhenzunahme muss Druck sinken und Höhe steigen.
-4. In Bluefy auf iOS und einem Web-Bluetooth-Browser auf Android: MTU ≥167,
+4. In Bluefy auf iOS und einem Web-Bluetooth-Browser auf Android: MTU ≥179,
    mehrere Minuten ungefähr 50 Hz, Paketlücken beobachten; Bluetooth aus/an,
    außer Reichweite, erneut verbinden.
 5. Gas/BSEC mehrere Minuten aufwärmen und Kalibrierstatus beobachten.
@@ -65,8 +65,12 @@ die verbleibende zeitliche Abweichung den Erdbezug verschlechtern.
 zeitgewichteten Mittelwert. `Control.h` kodiert Gerätebestätigungen. Die zweite
 BLE-Charakteristik nimmt Filtereinstellungen, QNH, Nullpunkt sowie Flugstart/-ende
 entgegen. Grenzen und Gültigkeit prüft die Firmware. Einstellungen bleiben im
-RAM bis zum Neustart erhalten. Der Browser führt keine Vario- oder Höhenrechnung
+internen Flash dauerhaft erhalten. Der Browser führt keine Vario- oder Höhenrechnung
 aus; mit alter Firmware erscheint deshalb ein Update-Hinweis.
 
-Vollständiger Build am 23.09.2026: 324336 Byte Flash (61 %), 41448 Byte statischer
-RAM (64 %), 22840 Byte für Heap/Stack verbleibend. Noch kein Live-Hardwaretest.
+`AudioProfile.h` und `VarioTone.h` erzeugen die Tonparameter. `SettingsStore.h`
+speichert Konfigurationen atomar via TDBStore mit Readback in den letzten 8 KiB
+internen Flash. Der Programm-Endpunkt wird vor jedem Speicherstart auf
+Überlappung geprüft. Es gibt keinen Zugriff auf den externen Sensorhub-Flash.
+Bei einem vollständigen Flash-Erase während eines Firmware-Uploads können
+Einstellungen verloren gehen. Power-Cycle- und Live-Audiotest noch erforderlich.
