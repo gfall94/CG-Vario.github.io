@@ -36,14 +36,17 @@ Hardware-Abnahme bleibt erforderlich:
 
 Am 24.09.2026 wurde der Nicla Sense ME an COM5 erkannt und die neue Firmware
 erfolgreich aufgespielt (Arduino CLI/OpenOCD, Exit-Code 0). Der vollständige
-Build benötigt 338032 Byte Flash und 42048 Byte statischen RAM.
+Build nach dem Cordio-Speicherfix benötigt 327960 Byte Flash und 41784 Byte
+statischen RAM. BLE reserviert seinen zusammenhängenden 13.000-Byte-Puffer vor
+Sensor- und Flashinitialisierung; der persistente Speicher arbeitet ohne
+TDBStore mit zwei CRC-gesicherten Flash-Slots.
 Live-BLE-, Power-Cycle- und Flugtest stehen weiterhin aus.
 
 Ergänzungen v9: Tests reproduzieren das ArduinoBLE-Schreibecho (Preset-Nutzdaten
 null), ignorieren es und warten auf eine echte ES-Antwort. Flash-Speicherfehler
 dürfen weder aktive Werte ersetzen noch als erfolgreich gemeldet werden.
 Die Transaktion wird mit einem fehlschlagenden Speicher-Double und simuliertem
-Neustart getestet. TDBStore/physischer Flash benötigt zusätzlich einen echten
+Neustart getestet. Der physische Flash benötigt zusätzlich einen echten
 Power-Cycle-Test: QNH, Preset und Audio-Profil ändern, Bestätigung abwarten,
 Strom aus/ein und Gerätestand erneut lesen.
 

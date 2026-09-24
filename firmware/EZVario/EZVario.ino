@@ -66,6 +66,9 @@ bool aligned(int i) { return abs((int32_t)(updated[i]-updated[4])) <= 25; }
 
 void setup() {
   Serial.begin(115200); // No wait for USB: works from battery.
+  // Cordio requires one contiguous 13 kB heap block. Reserve it before any
+  // sensor or persistence subsystem can allocate or fragment the small heap.
+  if (!BLE.begin()) { Serial.println("BLE initialization failed"); while(true) delay(1000); }
   if(!settingsStore.begin(vario.settings))Serial.println("Settings storage unavailable; changes will be rejected");
   if (!BHY2.begin(NICLA_STANDALONE)) {
     Serial.println("BHY2 initialization failed"); while (true) delay(1000);
@@ -84,7 +87,6 @@ void setup() {
   if (!(linearScale>0)) linearScale=NAN;
   if (!(gyroScale>0)) gyroScale=NAN;
   if (!(magScale>0)) magScale=NAN;
-  if (!BLE.begin()) { Serial.println("BLE initialization failed"); while(true) delay(1000); }
   BLE.setLocalName("EZ-Vario");
   BLE.setDeviceName("EZ-Vario Nicla");
   BLE.setAdvertisedService(service);

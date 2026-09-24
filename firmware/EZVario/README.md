@@ -69,8 +69,15 @@ internen Flash dauerhaft erhalten. Der Browser führt keine Vario- oder Höhenre
 aus; mit alter Firmware erscheint deshalb ein Update-Hinweis.
 
 `AudioProfile.h` und `VarioTone.h` erzeugen die Tonparameter. `SettingsStore.h`
-speichert Konfigurationen atomar via TDBStore mit Readback in den letzten 8 KiB
-internen Flash. Der Programm-Endpunkt wird vor jedem Speicherstart auf
-Überlappung geprüft. Es gibt keinen Zugriff auf den externen Sensorhub-Flash.
+speichert Konfigurationen in zwei wechselnden, CRC-gesicherten 4-KB-Sektoren in
+den letzten 8 KiB internen Flash. Das schützt gegen unterbrochene Schreibvorgänge
+und benötigt keinen dauerhaft belegten Heap. Der Programm-Endpunkt wird vor
+jedem Speicherstart auf Überlappung geprüft. Es gibt keinen Zugriff auf den
+externen Sensorhub-Flash.
 Bei einem vollständigen Flash-Erase während eines Firmware-Uploads können
 Einstellungen verloren gehen. Power-Cycle- und Live-Audiotest noch erforderlich.
+
+BLE wird als Erstes initialisiert, weil Cordio auf dem Nicla einen
+zusammenhängenden 13.000-Byte-Puffer benötigt. Speicher- oder Sensordienste vor
+`BLE.begin()` können den kleinen Heap so fragmentieren, dass der Start mit
+`_stack_buffer != NULL` abbricht.
