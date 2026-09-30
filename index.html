@@ -3,14 +3,15 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#08121b"><meta name="description" content="CG-Vario – dein Cockpit für den Arduino Nicla Sense ME">
-  <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="stylesheet" href="styles.css?v=12">
+  <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="stylesheet" href="styles.css?v=13">
   <title>CG-Vario · Flugcockpit</title>
 </head>
 <body>
-  <header><a class="brand" href="#cockpit"><b>CG</b>-VARIO <span>FLUGCOCKPIT</span></a><div class="connection"><span id="status" role="status">Nicht verbunden</span><button id="connect">Verbinden</button></div></header>
+  <header><a class="brand" href="#dashboard"><b>CG</b>-VARIO <span>FLUGCOCKPIT</span></a><div class="connection"><span id="status" role="status">Nicht verbunden</span><button id="connect">Verbinden</button></div></header>
   <main>
-    <nav aria-label="Bereiche"><a href="#cockpit">01 Cockpit</a><a href="#settings">02 Einstellungen</a><a href="#sensors">03 Sensoren</a></nav>
-    <section id="cockpit" class="cockpit" aria-label="Fluginstrument">
+    <nav class="tabs" role="tablist" aria-label="Bereiche"><a id="tab-dashboard" href="#dashboard" role="tab" aria-controls="dashboard" data-tab="dashboard">Dashboard</a><a id="tab-settings" href="#settings" role="tab" aria-controls="settings" data-tab="settings">Einstellungen</a><a id="tab-sensors" href="#sensors" role="tab" aria-controls="sensors" data-tab="sensors">Sensoren</a><a id="tab-device" href="#device" role="tab" aria-controls="device" data-tab="device">Geräte-GPS</a></nav>
+    <section id="dashboard" class="tab-panel" role="tabpanel" aria-labelledby="tab-dashboard">
+    <section class="cockpit" aria-label="Fluginstrument">
       <div class="instrument">
         <div class="instrument-top"><span>VERTIKALGESCHWINDIGKEIT</span><span id="filterMode">Warte auf Nicla</span></div>
         <div class="vario-face"><div class="scale" aria-hidden="true"><span>+5</span><span>+2</span><span>0</span><span>−2</span><span>−5</span><div class="scale-track"><i id="varioBar"></i></div></div><div class="vario-number"><strong id="vario">–</strong><span>m/s</span><p>STEIGEN / SINKEN</p></div></div>
@@ -24,7 +25,8 @@
       <section class="trend panel"><div class="section-title"><div><span class="eyebrow">DIE LETZTE MINUTE</span><h2>G-Kraft</h2></div><div class="legend"><span>Gesamt <b id="trendGForce">–</b> g</span></div></div><canvas id="gForceChart" aria-label="Gesamte G-Kraft der letzten 60 Sekunden"></canvas><div class="trend-footer"><span>−60 s</span><span>jetzt</span></div></section>
     </div>
     <section class="panel audio-player"><div class="section-title"><h2>Vario-Ton</h2><span id="audioStatus" role="status">Aus</span></div><div class="audio-controls"><button id="audioToggle" type="button" aria-pressed="false">Ton einschalten</button><label for="audioVolume">Lautstärke <output id="audioVolumeValue">75 %</output><input id="audioVolume" type="range" min="0" max="100" value="75"></label></div><p class="muted">Der Ton wird beim Verbinden automatisch aktiviert. Steigen: höhere und schnellere Pieptöne. Sinken: durchgehender, tiefer werdender Ton. Bei Datenverlust oder beim Verlassen der Seite verstummt der Ton. Für die Wiedergabe Bluefy geöffnet lassen.</p></section>
-    <section id="settings" class="panel settings"><div class="section-title"><div><span class="eyebrow">DEIN FLUGGEFÜHL</span><h2>Vario abstimmen</h2></div><span id="settingsStatus" role="status">Gerät verbinden</span></div>
+    </section>
+    <section id="settings" class="panel settings tab-panel" role="tabpanel" aria-labelledby="tab-settings" hidden><div class="section-title"><div><span class="eyebrow">DEIN FLUGGEFÜHL</span><h2>Vario abstimmen</h2></div><span id="settingsStatus" role="status">Gerät verbinden</span></div>
       <p class="muted">Filter, QNH und Audio-Profil werden auf dem Nicla berechnet und nach Gerätebestätigung dauerhaft gespeichert – auch über einen Neustart hinweg.</p>
       <fieldset id="deviceSettings" disabled><legend>Geräteeinstellungen</legend>
         <div class="profiles" role="group" aria-label="Filterprofile"><button type="button" data-command="5"><b>Ruhig</b><span>Mehr Dämpfung</span></button><button type="button" data-command="6"><b>Ausgewogen</b><span>Für den Einstieg</span></button><button type="button" data-command="7"><b>Direkt</b><span>Schnellere Reaktion</span></button></div>
@@ -45,9 +47,16 @@
         </section><div class="settings-actions"><button class="primary" type="submit">An Nicla senden</button><button id="resetSettings" type="button">Standard wiederherstellen</button></div></form>
       </fieldset>
     </section>
-    <details id="sensors" class="panel sensors"><summary>Sensoren &amp; Verbindungsdiagnose</summary><div id="sensorGrid" class="sensor-grid"></div><div class="diagnostics"><span>Empfang: <b id="rate">0</b> Hz</span><span>Paketlücken: <b id="lost">0</b></span><span>Firmware-Protokoll: <b id="protocolVersion">–</b></span></div></details>
-    <div class="utilities"><button id="export">CSV exportieren</button><button id="fullscreen">Vollbild</button></div>
+    <section id="sensors" class="panel sensors tab-panel" role="tabpanel" aria-labelledby="tab-sensors" hidden><div class="section-title"><div><span class="eyebrow">NICLA SENSE ME</span><h2>Sensoren &amp; Verbindung</h2></div><button id="export">CSV exportieren</button></div><div id="sensorGrid" class="sensor-grid"></div><div class="diagnostics"><span>Empfang: <b id="rate">0</b> Hz</span><span>Paketlücken: <b id="lost">0</b></span><span>Firmware-Protokoll: <b id="protocolVersion">–</b></span></div></section>
+    <section id="device" class="tab-panel" role="tabpanel" aria-labelledby="tab-device" hidden>
+      <section class="panel gps-panel"><div class="section-title"><div><span class="eyebrow">SMARTPHONE / TABLET</span><h2>Geräte-GPS</h2></div><div class="gps-actions"><span id="gpsStatus" role="status">Nicht gestartet</span><button id="gpsToggle" class="primary" type="button">GPS starten</button></div></div><p class="muted">Die Position kommt direkt vom Gerät, auf dem CG‑Vario geöffnet ist. Für genaue Werte Standortzugriff erlauben und freie Sicht zum Himmel herstellen.</p>
+        <div class="gps-primary"><article><span>GPS-HÖHE</span><div><strong id="gpsAltitude">–</strong><small>m</small></div></article><article><span>GESCHWINDIGKEIT ÜBER GRUND</span><div><strong id="gpsSpeed">–</strong><small>km/h</small></div><p><b id="gpsSpeedMs">–</b> m/s</p></article><article><span>KURS ÜBER GRUND</span><div><strong id="gpsHeading">–</strong><small>°</small></div><p id="gpsDirection">–</p></article></div>
+        <div class="gps-details"><div><span>Breitengrad</span><strong id="gpsLatitude">–</strong></div><div><span>Längengrad</span><strong id="gpsLongitude">–</strong></div><div><span>Horizontale GPS-Genauigkeit</span><strong id="gpsAccuracy">–</strong></div><div><span>Vertikale GPS-Genauigkeit</span><strong id="gpsAltitudeAccuracy">–</strong></div><div><span>Letzter GPS-Fix</span><strong id="gpsTime">–</strong></div></div>
+      </section>
+      <section class="panel map-panel"><div class="section-title"><h2>Position</h2><a id="gpsMapLink" href="https://www.openstreetmap.org/" target="_blank" rel="noopener">In OpenStreetMap öffnen</a></div><div id="gpsMapEmpty" class="map-empty">GPS starten, um die aktuelle Position auf der Karte anzuzeigen.</div><iframe id="gpsMap" title="Aktuelle GPS-Position in OpenStreetMap" loading="lazy" referrerpolicy="no-referrer" hidden></iframe></section>
+    </section>
+    <div class="utilities"><button id="fullscreen">Vollbild</button></div>
     <p id="message" role="status">In Bluefy öffnen und mit deinem Nicla verbinden.</p>
   </main><footer>CG-VARIO <span>Nicla Sense ME · Messwerte bleiben auf deinem Gerät</span></footer>
-  <script type="module" src="app.js?v=12"></script>
+  <script type="module" src="app.js?v=13"></script>
 </body></html>

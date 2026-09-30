@@ -1,5 +1,5 @@
-import {SERVICE_UUID,CHARACTERISTIC_UUID,CONTROL_UUID,fields,settingFields,AUDIO_SPEEDS,decodeTelemetry,decodeSettings,isCommandEcho,validateSettings,encodeCommand,sequenceGap,samplesInWindow} from './protocol.js?v=12';
-import {VarioAudio} from './audio.js?v=12';
+import {SERVICE_UUID,CHARACTERISTIC_UUID,CONTROL_UUID,fields,settingFields,AUDIO_SPEEDS,decodeTelemetry,decodeSettings,isCommandEcho,validateSettings,encodeCommand,sequenceGap,samplesInWindow} from './protocol.js?v=13';
+import {VarioAudio} from './audio.js?v=13';
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const $=id=>document.getElementById(id);
@@ -15,6 +15,46 @@ const number=(v,d=1,signed=false)=>Number.isFinite(v)?`${signed&&v>0?'+':''}${v.
 function message(text,error=false){$('message').textContent=text;$('message').className=error?'error':'';}
 function status(text,cls=''){$('status').textContent=text;$('status').className=cls;}
 function screenDim(enabled){try{Promise.resolve(navigator.bluetooth?.setScreenDimEnabled?.(enabled)).catch(()=>{});}catch{}}
+const tabNames=new Set(['dashboard','settings','sensors','device']);
+function activateTab(name,updateHash=true){
+  if(!tabNames.has(name))name='dashboard';
+  for(const tab of document.querySelectorAll('[data-tab]')){const active=tab.dataset.tab===name;tab.classList.toggle('active',active);tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1;}
+  for(const panel of document.querySelectorAll('.tab-panel'))panel.hidden=panel.id!==name;
+  if(updateHash&&globalThis.history?.replaceState)globalThis.history.replaceState(null,'',`#${name}`);
+}
+for(const tab of document.querySelectorAll('[data-tab]'))tab.onclick=event=>{event.preventDefault();activateTab(tab.dataset.tab);};
+globalThis.addEventListener?.('hashchange',()=>activateTab(globalThis.location?.hash.slice(1),false));
+activateTab(globalThis.location?.hash.slice(1)||'dashboard');
+
+let gpsWatch=null,lastMapAt=0,lastMapLat=NaN,lastMapLon=NaN;
+const direction=heading=>['N','NO','O','SO','S','SW','W','NW'][Math.round((heading%360)/45)%8];
+function gpsValue(id,value,digits=1,suffix=''){$(id).textContent=Number.isFinite(value)?`${value.toFixed(digits)}${suffix}`:'–';}
+function updateGps(position){
+  const c=position.coords,heading=Number.isFinite(c.heading)?c.heading:NaN,speed=Number.isFinite(c.speed)?c.speed:NaN,altitude=Number.isFinite(c.altitude)?c.altitude:NaN;
+  gpsValue('gpsAltitude',altitude,1);gpsValue('gpsSpeed',Number.isFinite(speed)?speed*3.6:NaN,1);gpsValue('gpsSpeedMs',speed,1);
+  gpsValue('gpsHeading',heading,0);$('gpsDirection').textContent=Number.isFinite(heading)?direction(heading):'Kein Kurs verfügbar';
+  gpsValue('gpsLatitude',c.latitude,6,'°');gpsValue('gpsLongitude',c.longitude,6,'°');gpsValue('gpsAccuracy',c.accuracy,0,' m');gpsValue('gpsAltitudeAccuracy',Number.isFinite(c.altitudeAccuracy)?c.altitudeAccuracy:NaN,0,' m');
+  $('gpsTime').textContent=new Date(position.timestamp).toLocaleTimeString('de-DE');$('gpsStatus').textContent='GPS aktiv';$('gpsStatus').className='live';
+  const now=Date.now(),moved=Math.abs(c.latitude-lastMapLat)+Math.abs(c.longitude-lastMapLon)>.00015;
+  if(!Number.isFinite(lastMapLat)||moved||now-lastMapAt>10000){
+    const delta=.008,box=[c.longitude-delta,c.latitude-delta,c.longitude+delta,c.latitude+delta].join(',');
+    $('gpsMap').src=`https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(box)}&layer=mapnik&marker=${encodeURIComponent(`${c.latitude},${c.longitude}`)}`;
+    $('gpsMapLink').href=`https://www.openstreetmap.org/?mlat=${encodeURIComponent(c.latitude)}&mlon=${encodeURIComponent(c.longitude)}#map=16/${encodeURIComponent(c.latitude)}/${encodeURIComponent(c.longitude)}`;
+    $('gpsMap').hidden=false;$('gpsMapEmpty').hidden=true;lastMapAt=now;lastMapLat=c.latitude;lastMapLon=c.longitude;
+  }
+}
+function gpsError(error){
+  const texts={1:'Standortzugriff wurde nicht erlaubt',2:'GPS-Position nicht verfügbar',3:'GPS-Suche dauert zu lange'};
+  $('gpsStatus').textContent=texts[error.code]||'GPS-Fehler';$('gpsStatus').className='error';
+  if(error.code===1&&gpsWatch!==null){navigator.geolocation.clearWatch(gpsWatch);gpsWatch=null;$('gpsToggle').textContent='GPS starten';}
+}
+function toggleGps(){
+  if(gpsWatch!==null){navigator.geolocation.clearWatch(gpsWatch);gpsWatch=null;$('gpsToggle').textContent='GPS starten';$('gpsStatus').textContent='GPS angehalten';$('gpsStatus').className='';return;}
+  if(!navigator.geolocation){gpsError({code:2});return;}
+  $('gpsStatus').textContent='Suche GPS …';$('gpsStatus').className='';$('gpsToggle').textContent='GPS stoppen';
+  gpsWatch=navigator.geolocation.watchPosition(updateGps,gpsError,{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
+}
+$('gpsToggle').onclick=toggleGps;
 function fillSettings(s){$('audioDraftStatus').textContent='Audio-Profil vom Nicla übernommen.';settings=s;for(const key of settingFields)$(key).value=Number(s[key].toFixed(key==='qnh'?2:3));$('qnhReadout').textContent=number(s.qnh,2);$('averageWindow').textContent=number(s.averageSeconds,0);drawAudioProfile();}
 function draftSettings(){return Object.fromEntries(settingFields.map(k=>[k,Number($(k).value)]));}
 function drawAudioProfile(){
