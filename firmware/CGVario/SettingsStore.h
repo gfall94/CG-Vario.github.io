@@ -21,7 +21,7 @@ class SettingsStore {
     uint8_t data[CONTROL_SIZE];
     uint32_t checksum;
   };
-  static_assert(sizeof(Record)==164,"Flash record must stay word aligned");
+  static_assert(sizeof(Record)==172,"Flash record must stay word aligned");
 
   bool ready=false,hasLast=false;
   uint8_t active=0;
@@ -36,9 +36,12 @@ class SettingsStore {
     return crc(reinterpret_cast<const uint8_t*>(&r.generation),offsetof(Record,checksum)-offsetof(Record,generation));
   }
   static bool valid(const Record& r) {
-    return r.magic==MAGIC&&r.size==CONTROL_SIZE&&r.version==2&&r.checksum==recordCrc(r)&&
-           r.data[0]=='E'&&r.data[1]=='S'&&r.data[2]==2&&readSettings(r.data).valid();
+    return r.magic==MAGIC&&r.size==CONTROL_SIZE&&r.version==3&&r.checksum==recordCrc(r)&&
+           r.data[0]=='E'&&r.data[1]=='S'&&r.data[2]==3&&readSettings(r.data).valid();
   }
+  struct LegacyRecord {uint32_t magic,generation;uint16_t size;uint8_t version,reserved;uint8_t data[148];uint32_t checksum;};
+  static_assert(sizeof(LegacyRecord)==164,"Legacy layout");
+  static bool legacyValid(const LegacyRecord& r){return r.magic==MAGIC&&r.size==148&&r.version==2&&r.data[0]=='E'&&r.data[1]=='S'&&r.data[2]==2&&r.checksum==crc(reinterpret_cast<const uint8_t*>(&r.generation),offsetof(LegacyRecord,checksum)-offsetof(LegacyRecord,generation))&&readSettings(r.data).valid();}
   static bool newer(uint32_t a,uint32_t b){return static_cast<int32_t>(a-b)>0;}
 
  public:
@@ -51,6 +54,9 @@ class SettingsStore {
     Record records[2];
     const bool read0=geometry&&flash.read(&records[0],SLOT0,sizeof(Record))==0;
     const bool read1=geometry&&flash.read(&records[1],SLOT1,sizeof(Record))==0;
+    LegacyRecord old[2];
+    const bool old0=geometry&&flash.read(&old[0],SLOT0,sizeof(LegacyRecord))==0&&legacyValid(old[0]);
+    const bool old1=geometry&&flash.read(&old[1],SLOT1,sizeof(LegacyRecord))==0&&legacyValid(old[1]);
     flash.deinit();
     if(!geometry)return false;
     const bool valid0=read0&&valid(records[0]),valid1=read1&&valid(records[1]);
@@ -60,13 +66,18 @@ class SettingsStore {
       settings=readSettings(selected.data);generation=selected.generation;
       memcpy(last,selected.data,sizeof(last));hasLast=true;
     }
+    if(!(valid0||valid1)&&(old0||old1)){
+      active=old1&&(!old0||newer(old[1].generation,old[0].generation));
+      settings=readSettings(old[active].data);generation=old[active].generation;
+      encodeSettings(last,settings,0,0,0);hasLast=true;
+    }
     ready=true;
     return true;
   }
   bool save(const Settings& s){
     if(!ready)return false;
     Record record={};
-    record.magic=MAGIC;record.generation=generation+1;record.size=CONTROL_SIZE;record.version=2;
+    record.magic=MAGIC;record.generation=generation+1;record.size=CONTROL_SIZE;record.version=3;
     encodeSettings(record.data,s,0,0,0);record.checksum=recordCrc(record);
     if(hasLast&&memcmp(last,record.data,sizeof(last))==0)return true;
     const uint8_t target=hasLast?active^1u:0;

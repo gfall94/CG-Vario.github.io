@@ -15,6 +15,7 @@ jobs:
           node-version: 22
       - run: npm test
       - run: g++ -std=c++17 -O2 -Wall -Wextra -Werror test/firmware.cpp -o /tmp/vario-test && /tmp/vario-test
+      - run: g++ -std=c++17 -O2 -Wall -Wextra -Werror -Itest/pwm-stub test/buzzer.cpp -o /tmp/buzzer-test && /tmp/buzzer-test
   firmware:
     runs-on: ubuntu-latest
     steps:

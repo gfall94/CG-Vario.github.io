@@ -1,9 +1,11 @@
 #include <Arduino_BHY2.h>
 #include <ArduinoBLE.h>
+#include <Nicla_System.h>
 #include "Telemetry.h"
 #include "Control.h"
 #include "VarioTone.h"
 #include "SettingsStore.h"
+#include "Buzzer.h"
 
 // One compact characteristic. Web Bluetooth/Bluefy starts the stream by
 // subscribing, so no proprietary start command or MTU write is required.
@@ -14,6 +16,7 @@ BLECharacteristic control("a6e90003-7a25-4b48-9c6d-4f5b108a0001",
                           BLERead | BLEWrite | BLENotify, ez::CONTROL_SIZE, true);
 ez::Vario vario;
 ez::VarioTone varioTone;
+ez::Buzzer buzzer;
 ez::SettingsStore settingsStore;
 uint16_t settingsRevision=0;
 float zeroHeight=NAN, maxClimb=NAN, maxSink=NAN, maxAltitude=NAN;
@@ -28,7 +31,7 @@ void commands(uint32_t now) {
   if(!control.written())return;
   uint8_t b[ez::CONTROL_SIZE];
   const int n=control.readValue(b,sizeof(b));
-  if(n!=ez::CONTROL_SIZE || b[0]!='E'||b[1]!='C'||b[2]!=2){replySettings(0,1);return;}
+  if(n!=ez::CONTROL_SIZE || b[0]!='E'||b[1]!='C'||b[2]!=3){replySettings(0,1);return;}
   const uint16_t request=ez::read16(b+4);
   bool ok=true;
   uint8_t result=0;
@@ -40,7 +43,7 @@ void commands(uint32_t now) {
     case 3: if(flying){flightDuration=now-flightStart;flying=false;}break;
     case 4: result=ez::persistSettings(vario,ez::Settings{},settingsStore);break;
     case 5: case 6: case 7:
-      candidate=ez::profile(b[3]-5,vario.settings.qnh);candidate.audio=vario.settings.audio;
+      candidate=ez::profile(b[3]-5,vario.settings.qnh);candidate.audio=vario.settings.audio;candidate.buzzerEnabled=vario.settings.buzzerEnabled;candidate.buzzerVolume=vario.settings.buzzerVolume;
       result=ez::persistSettings(vario,candidate,settingsStore);break;
     case 8: {
       const float referenceHeight=ez::readFloat(b+8);
@@ -107,6 +110,7 @@ void setup() {
   if (!BHY2.begin(NICLA_STANDALONE)) {
     Serial.println("BHY2 initialization failed"); while (true) delay(1000);
   }
+  if(!nicla::enable3V3LDO()){Serial.println("Buzzer IO voltage setup failed");while(true)delay(1000);}
   // Cordio needs a contiguous 13 kB heap block. Claim it before configuring
   // the individual virtual sensors; persistence itself is allocation-free.
   if (!BLE.begin()) { Serial.println("BLE initialization failed"); while(true) delay(1000); }
@@ -131,6 +135,7 @@ void setup() {
   stream.writeValue(initial,sizeof(initial));
   replySettings();
   BLE.advertise();
+  buzzer.begin();
   nextSend=millis()+20;
   nextScaleRead=millis()+1000;
 }
@@ -147,6 +152,7 @@ void loop() {
   refreshScales(now);
   if ((fresh&32) && recent(seen,5)) { latestPressureHpa=pressure.value(); latestPressureAt=now; }
   commands(now);
+  buzzer.update(now,varioTone,vario.settings);
   if ((int32_t)(now-nextSend)<0) return;
   const uint32_t ticks=1+(now-nextSend)/20;
   nextSend += ticks*20; sequence += ticks; // Expose missed deadlines, never burst old data.

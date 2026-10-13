@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#08121b"><meta name="description" content="CG-Vario – dein Cockpit für den Arduino Nicla Sense ME">
-  <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="stylesheet" href="styles.css?v=13">
+  <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="stylesheet" href="styles.css?v=14">
   <title>CG-Vario · Flugcockpit</title>
 </head>
 <body>
@@ -40,6 +40,7 @@
           <label>Beschleunigung glätten <span>Dämpft Vibrationen vor der Fusion</span><div><input id="accelTau" type="number" min="0.04" max="0.4" step="0.01" required> s</div></label>
           <label>Prozessrauschen <span>Größer = stärkere Barometer-Korrektur</span><div><input id="processNoise" type="number" min="0.02" max="1" step="0.01" required> m²/s³</div></label>
         </div></details>
+        <section class="audio-editor"><h3>Buzzer am Nicla</h3><div class="settings-grid"><label>Buzzer aktiv<div><select id="buzzerEnabled"><option value="0">Aus</option><option value="1">Ein</option></select></div></label><label>Buzzer-Lautstärke<div><input id="buzzerVolume" type="number" min="0" max="100" step="1" required> %</div><span>Relative Lautstärke über Pulsbreite</span></label></div><p class="muted">GPIO3 / Digital 0 · gleiche Tonhöhe und Piepsfolge wie am Handy, auch ohne Verbindung. Mit „An Nicla senden“ dauerhaft speichern.</p></section>
         <section class="audio-editor"><h3>Audio-Profil</h3><p class="muted">Stützpunkte bearbeiten und mit „An Nicla senden“ speichern. Dazwischen interpoliert der Nicla. Höhere Steigrate: höhere Tonhöhe und kürzere Tonfolge. Beim Sinken gelten immer Dauertöne.</p>
           <div class="settings-grid"><label>Steigton ab<div><input id="climbThreshold" type="number" min="0.05" max="2" step="0.01" required> m/s</div></label><label>Sinkton unter<div><input id="sinkThreshold" type="number" min="-5" max="-0.2" step="0.1" required> m/s</div></label></div>
           <div class="audio-legend"><span>Tonhöhe · Hz</span><span>Tonlänge · ms</span><span>Pause · ms</span></div><svg id="audioGraph" viewBox="0 0 900 280" role="img" aria-label="Audio-Profil: Tonhöhe, Tonlänge und Pause über der Steigrate"></svg>
@@ -58,5 +59,5 @@
     <div class="utilities"><button id="fullscreen">Vollbild</button></div>
     <p id="message" role="status">In Bluefy öffnen und mit deinem Nicla verbinden.</p>
   </main><footer>CG-VARIO <span>Nicla Sense ME · Messwerte bleiben auf deinem Gerät</span></footer>
-  <script type="module" src="app.js?v=13"></script>
+  <script type="module" src="app.js?v=14"></script>
 </body></html>

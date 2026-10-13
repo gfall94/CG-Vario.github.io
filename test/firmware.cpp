@@ -51,9 +51,10 @@ int main(){
   assert(ez::readFloat(packet+20+4*ez::VARIO)==17.25f);
   const float testQnh=ez::qnhForAltitude(1000,ez::altitude(1000));
   assert(fabsf(testQnh-1013.25f)<.01f);
-  uint8_t config[ez::CONTROL_SIZE];ez::Settings s;ez::encodeSettings(config,s,12,3,0);
+  uint8_t config[ez::CONTROL_SIZE];ez::Settings s;s.buzzerEnabled=1;s.buzzerVolume=42;ez::encodeSettings(config,s,12,3,0);
   assert(ez::readSettings(config).valid());assert(ez::read16(config+4)==12);
-  assert(config[1]=='S'&&config[2]==2);assert(ez::readSettings(config).audio.points[8].pitch==2400);
+  assert(ez::readSettings(config).buzzerEnabled==1&&ez::readSettings(config).buzzerVolume==42);
+  assert(config[1]=='S'&&config[2]==3);assert(ez::readSettings(config).audio.points[8].pitch==2400);
   struct MemoryStore{bool fail=false;ez::Settings saved;bool save(const ez::Settings& s){if(fail)return false;saved=s;return true;}} store;
   ez::Vario persisted;auto changed=persisted.settings;changed.qnh=1020;changed.audio.points[8].pitch=2450;
   assert(ez::persistSettings(persisted,changed,store)==0);

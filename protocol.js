@@ -5,8 +5,8 @@ export const VERSION=4, PACKET_SIZE=140;
 export const fields=['accE','accN','accU','gForce','magX','magY','magZ','pressure','temperature','humidity','gas','iaq','eco2','bvoc','headingError','standardAltitude','bsecAccuracy','vario','average','altitude','relativeAltitude','maxClimb','maxSink','maxAltitude','flightSeconds','accelBias','speedSigma','toneHz','tonePeriod','toneOn'];
 const legacyFields=['accE','accN','accU','linearE','linearN','linearU','gyroX','gyroY','gyroZ','magX','magY','magZ','quatX','quatY','quatZ','quatW','pressure','temperature','humidity','gas','iaq','eco2','bvoc','headingError','standardAltitude','bsecAccuracy','vario','average','altitude','relativeAltitude','maxClimb','maxSink','maxAltitude','flightSeconds','accelBias','speedSigma','toneHz','tonePeriod','toneOn'];
 export const AUDIO_SPEEDS=[-10,-5,-2,0,.5,1,2,5,10];
-export const settingFields=['qnh','baroSigma','accelTau','responseTau','averageSeconds','processNoise','climbThreshold','sinkThreshold',...AUDIO_SPEEDS.flatMap((_,i)=>[`pitch${i}`,`length${i}`,`pause${i}`])];
-export const CONTROL_SIZE=148;
+export const settingFields=['qnh','baroSigma','accelTau','responseTau','averageSeconds','processNoise','climbThreshold','sinkThreshold',...AUDIO_SPEEDS.flatMap((_,i)=>[`pitch${i}`,`length${i}`,`pause${i}`]),'buzzerEnabled','buzzerVolume'];
+export const CONTROL_SIZE=156;
 const viewOf=input=>input instanceof DataView?input:new DataView(input.buffer??input,input.byteOffset??0,input.byteLength);
 export function decodeTelemetry(input){
   const v=viewOf(input);
@@ -22,23 +22,24 @@ export function decodeTelemetry(input){
   if(version===1)s.status=0;
   return s;
 }
-export function encodeCommand(opcode,request,settings={}){
-  const b=new ArrayBuffer(CONTROL_SIZE),v=new DataView(b);
-  v.setUint8(0,69);v.setUint8(1,67);v.setUint8(2,2);v.setUint8(3,opcode);v.setUint16(4,request,true);
-  settingFields.forEach((key,i)=>v.setFloat32(8+4*i,settings[key]??0,true));
+export function encodeCommand(opcode,request,settings={},controlVersion=3){
+  const b=new ArrayBuffer(controlVersion===2?148:CONTROL_SIZE),v=new DataView(b);
+  v.setUint8(0,69);v.setUint8(1,67);v.setUint8(2,controlVersion);v.setUint8(3,opcode);v.setUint16(4,request,true);
+  settingFields.filter((_,i)=>8+4*i<b.byteLength).forEach((key,i)=>v.setFloat32(8+4*i,settings[key]??(key==='buzzerVolume'?75:0),true));
   if(opcode===8)v.setFloat32(8,settings.calibrationAltitude,true);
   return b;
 }
 export function decodeSettings(input){
   const v=viewOf(input);
-  if(v.byteLength!==CONTROL_SIZE||v.getUint8(0)!==69||v.getUint8(1)!==83||v.getUint8(2)!==2)throw Error('Neue Nicla-Firmware für gespeicherte Einstellungen und Audio erforderlich.');
-  const s={result:v.getUint8(3),request:v.getUint16(4,true),revision:v.getUint16(6,true)};
-  settingFields.forEach((key,i)=>{s[key]=v.getFloat32(8+4*i,true);if(!Number.isFinite(s[key]))throw Error('Ungültiger Einstellwert');});
+  if(![148,CONTROL_SIZE].includes(v.byteLength)||v.getUint8(0)!==69||v.getUint8(1)!==83||!((v.getUint8(2)===2&&v.byteLength===148)||(v.getUint8(2)===3&&v.byteLength===CONTROL_SIZE)))throw Error('Neue Nicla-Firmware für gespeicherte Einstellungen und Audio erforderlich.');
+  const s={controlVersion:v.getUint8(2),result:v.getUint8(3),request:v.getUint16(4,true),revision:v.getUint16(6,true)};
+  settingFields.forEach((key,i)=>{s[key]=8+4*i<v.byteLength?v.getFloat32(8+4*i,true):(key==='buzzerVolume'?75:0);if(!Number.isFinite(s[key]))throw Error('Ungültiger Einstellwert');});
   validateSettings(s);
   return s;
 }
 export function isCommandEcho(input){const v=viewOf(input);return v.byteLength>=2&&v.getUint8(0)===69&&v.getUint8(1)===67;}
 export function validateSettings(s){
+  if(![0,1].includes(s.buzzerEnabled)||!Number.isFinite(s.buzzerVolume)||s.buzzerVolume<0||s.buzzerVolume>100)throw Error('Ungültige Buzzer-Einstellung');
   const limits={qnh:[800,1100],baroSigma:[.3,3],accelTau:[.04,.4],responseTau:[.1,2],averageSeconds:[2,30],processNoise:[.02,1],climbThreshold:[.05,2],sinkThreshold:[-5,-.2]};
   for(const [key,[min,max]] of Object.entries(limits))if(!Number.isFinite(s[key])||s[key]<min-1e-6||s[key]>max+1e-6)throw Error(`Ungültiger Einstellwert: ${key}`);
   for(let i=0;i<AUDIO_SPEEDS.length;i++){

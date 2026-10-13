@@ -4,7 +4,7 @@ Service `a6e90001-7a25-4b48-9c6d-4f5b108a0001`.
 Telemetrie `a6e90002-7a25-4b48-9c6d-4f5b108a0001`: Read + Notify,
 ein gemeinsames 140-Byte-Paket mit bis zu 50 Hz. ATT-MTU mindestens 143.
 Konfiguration `a6e90003-7a25-4b48-9c6d-4f5b108a0001`: Read + Write + Notify,
-148 Byte, nur bei Einstellungsänderungen und Gerätebefehlen.
+156 Byte, nur bei Einstellungsänderungen und Gerätebefehlen.
 
 Alle Zahlen sind Little Endian, Floatwerte IEEE754 float32 und fehlende Werte NaN.
 
@@ -39,7 +39,7 @@ Periode 0 bei positiver Tonhöhe bedeutet Dauerton.
 
 ## Befehle und Gerätebestätigung
 
-148 Byte: ASCII EC für Befehle / ES für Antworten, Version 2, Opcode bzw.
+156 Byte: ASCII EC für Befehle / ES für Antworten, Version 3, Opcode bzw.
 Ergebnis, Request-ID und Revision. Danach folgen Filter-, QNH- und Audio-Werte.
 `EC`-Notifications sind Schreibechos von ArduinoBLE und werden ignoriert; nur
 `ES` bestätigt einen Befehl.
@@ -57,3 +57,5 @@ Readback bestätigt.
 
 Die Dashboard-Version liest weiterhin Telemetrie 1 bis 3. Nur Version 4 enthält
 die G-Kraft und das verkleinerte Feldschema.
+
+Buzzer-Erweiterung: Offset 148 float32 Ein/Aus (0/1), Offset 152 float32 Lautstaerke (0-100). Das Dashboard liest auch Version 2 (148 Byte) und sperrt dort die Buzzer-Felder. Flash-Version 2 wird mit Buzzer aus und 75 % uebernommen.

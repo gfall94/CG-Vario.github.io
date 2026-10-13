@@ -1,5 +1,5 @@
-import {SERVICE_UUID,CHARACTERISTIC_UUID,CONTROL_UUID,fields,settingFields,AUDIO_SPEEDS,decodeTelemetry,decodeSettings,isCommandEcho,validateSettings,encodeCommand,sequenceGap,samplesInWindow} from './protocol.js?v=13';
-import {VarioAudio} from './audio.js?v=13';
+import {SERVICE_UUID,CHARACTERISTIC_UUID,CONTROL_UUID,fields,settingFields,AUDIO_SPEEDS,decodeTelemetry,decodeSettings,isCommandEcho,validateSettings,encodeCommand,sequenceGap,samplesInWindow} from './protocol.js?v=14';
+import {VarioAudio} from './audio.js?v=14';
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const $=id=>document.getElementById(id);
@@ -55,7 +55,7 @@ function toggleGps(){
   gpsWatch=navigator.geolocation.watchPosition(updateGps,gpsError,{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
 }
 $('gpsToggle').onclick=toggleGps;
-function fillSettings(s){$('audioDraftStatus').textContent='Audio-Profil vom Nicla übernommen.';settings=s;for(const key of settingFields)$(key).value=Number(s[key].toFixed(key==='qnh'?2:3));$('qnhReadout').textContent=number(s.qnh,2);$('averageWindow').textContent=number(s.averageSeconds,0);drawAudioProfile();}
+function fillSettings(s){$('audioDraftStatus').textContent='Audio-Profil vom Nicla übernommen.';settings=s;$('buzzerEnabled').disabled=$('buzzerVolume').disabled=s.controlVersion<3;for(const key of settingFields)$(key).value=Number(s[key].toFixed(key==='qnh'?2:3));$('qnhReadout').textContent=number(s.qnh,2);$('averageWindow').textContent=number(s.averageSeconds,0);drawAudioProfile();}
 function draftSettings(){return Object.fromEntries(settingFields.map(k=>[k,Number($(k).value)]));}
 function drawAudioProfile(){
   const draft=draftSettings(),x=v=>55+(v+10)/20*780,y=(v,max)=>230-v/max*200;
@@ -80,7 +80,7 @@ async function command(opcode,values={}){
   // Register rejection handling before the asynchronous BLE write completes.
   promise.catch(()=>{});
   try {
-    const payload=encodeCommand(opcode,id,values);
+    const payload=encodeCommand(opcode,id,values,settings.controlVersion);
     if(characteristic.writeValueWithResponse)await characteristic.writeValueWithResponse(payload);
     else await characteristic.writeValue(payload); // Older Bluefy Web Bluetooth API.
     await promise;
