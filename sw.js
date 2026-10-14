@@ -1,5 +1,5 @@
-const CACHE='cg-vario-v15';
-const ASSETS=['./index.html','./styles.css?v=15','./app.js?v=15','./protocol.js?v=15','./audio.js?v=15','./gps.js?v=15','./map.js?v=15','./vendor/leaflet.js','./vendor/leaflet.css','./icon.svg','./manifest.webmanifest'];
+const CACHE='cg-vario-v16';
+const ASSETS=['./index.html','./styles.css?v=16','./app.js?v=16','./protocol.js?v=16','./audio.js?v=16','./gps.js?v=16','./map.js?v=16','./vendor/leaflet.js','./vendor/leaflet.css','./icon.svg','./manifest.webmanifest'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('cg-vario-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{

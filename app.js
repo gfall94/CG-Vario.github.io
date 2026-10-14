@@ -1,7 +1,7 @@
-import {GpsJourney} from './gps.js?v=15';
-import {FlightMap} from './map.js?v=15';
-import {SERVICE_UUID,CHARACTERISTIC_UUID,CONTROL_UUID,fields,settingFields,AUDIO_SPEEDS,decodeTelemetry,decodeSettings,isCommandEcho,validateSettings,encodeCommand,sequenceGap,samplesInWindow} from './protocol.js?v=15';
-import {VarioAudio} from './audio.js?v=15';
+import {GpsJourney} from './gps.js?v=16';
+import {FlightMap} from './map.js?v=16';
+import {SERVICE_UUID,CHARACTERISTIC_UUID,CONTROL_UUID,fields,settingFields,AUDIO_SPEEDS,decodeTelemetry,decodeSettings,isCommandEcho,validateSettings,encodeCommand,sequenceGap,samplesInWindow} from './protocol.js?v=16';
+import {VarioAudio} from './audio.js?v=16';
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const $=id=>document.getElementById(id);
